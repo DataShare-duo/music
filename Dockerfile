@@ -16,7 +16,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates \
+    && apt-get install -y --no-install-recommends git ca-certificates libcap2-bin \
     && pip install --no-cache-dir "uv==0.13.7" \
     && rm -rf /var/lib/apt/lists/*
 
@@ -30,14 +30,19 @@ RUN uv sync --locked --no-dev --no-cache
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 RUN mkdir -p /app/data \
     && useradd --create-home --uid 10001 app \
-    && chown -R app:app /app
+    && chown -R app:app /app \
+    && setcap cap_net_bind_service=+ep "$(readlink -f /app/.venv/bin/python)"
 
-ENV MUSIC_DATABASE_URL=sqlite+aiosqlite:///data/music.db \
+ENV PORT=80 \
+    MUSIC_DATABASE_URL=sqlite+aiosqlite:///data/music.db \
     MUSIC_CATALOG_TARGET=100 \
     MUSIC_PROVIDER_CONCURRENCY=2 \
     MUSIC_FULL_AUDIO_VERIFY_CONCURRENCY=1
 
+# Grant only low-port binding to Python; the application still runs as UID 10001
 USER app
-EXPOSE 10000
+EXPOSE 80
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["/app/.venv/bin/python", "-m", "music.healthcheck"]
 # Use the preinstalled environment directly, without syncing dependencies at startup
-CMD ["sh","-c","exec /app/.venv/bin/uvicorn music.app:app --host 0.0.0.0 --port \"${PORT:-10000}\" --workers 1 --no-proxy-headers"]
+CMD ["sh","-c","exec /app/.venv/bin/uvicorn music.app:app --host 0.0.0.0 --port \"${PORT:-80}\" --workers 1 --no-proxy-headers"]

@@ -48,7 +48,9 @@
 
 ## 网络与部署
 
-- 首次测试沿用 README 的 SSH 隧道方式，Docker 必须绑定 `127.0.0.1:10000`，安全组不开放 10000、8000、5173
+- 当前镜像默认监听 80，微信部署见 [微信云托管](wechat-cloudrun.md)，与本地开发的 8000/5173 端口互不影响
+- 自有服务器测试时先用 `docker build -t music-web .` 构建，再用 `docker run -d --name music --restart unless-stopped --env-file .env -p 127.0.0.1:10000:80 -v music-data:/app/data music-web` 启动，保持 `.env` 中的 `PORT=80`
+- 在自己电脑运行 `ssh -N -L 18000:127.0.0.1:10000 用户名@服务器IP`，浏览器访问 `http://127.0.0.1:18000`，安全组不开放 10000、8000、5173
 - 公网部署时使用 HTTPS 反向代理，后端仍绑定回环地址，限制上传大小、连接数和慢连接，并配置日志轮转
 - 程序不直接信任 X-Forwarded-For，Docker 默认使用 `--no-proxy-headers`，防止用伪造请求头绕过 IP 限制
 - 该默认模式下，反向代理访问可能统一按代理 IP 计数，对小范围测试更保守；若需识别真实 IP，必须先在可信代理处覆盖客户端提交的转发头，再仅信任该代理，不要直接设置 `--forwarded-allow-ips="*"`
