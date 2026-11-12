@@ -8,16 +8,28 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: MUSIC_DATABASE_URL
-        value: sqlite+aiosqlite:///data/music.db
-      - key: MUSIC_CATALOG_TARGET
-        value: "100"
+        value: 'sqlite+aiosqlite:///data/music.db'
+      - key: MUSIC_NETWORK_TIMEOUT
+        value: '12'
       - key: MUSIC_PROVIDER_CONCURRENCY
-        value: "2"
-      - key: MUSIC_FULL_AUDIO_VERIFY_CONCURRENCY
-        value: "1"
+        value: '3'
+      - key: MUSIC_FALLBACK_SOURCES
+        value: '["netease","kuwo"]'
       - key: MUSIC_FULL_AUDIO_VERIFY_TIMEOUT
-        value: "30"
+        value: '30'
+      - key: MUSIC_FULL_AUDIO_VERIFY_CONCURRENCY
+        value: '2'
       - key: MUSIC_FULL_AUDIO_RECHECK_INTERVAL
-        value: "21600"
+        value: '21600'
+      - key: MUSIC_CATALOG_TARGET
+        value: '500'
+      - key: MUSIC_CATALOG_TTL
+        value: '21600'
+      - key: MUSIC_SEARCH_TTL
+        value: '600'
       - key: MUSIC_FAILURE_COOLDOWN
-        value: "60"
+        value: '60'
+      - key: MUSIC_PLAYBACK_TTL
+        value: '7200'
+      - key: MUSIC_KEYWORDS
+        value: '["2026","热门歌曲","流行","抖音热歌","华语流行","新歌","经典华语","独立音乐","民谣","治愈","轻音乐"]'

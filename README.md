@@ -181,6 +181,16 @@ Render 免费服务休眠或重启后，当前项目的 SQLite、歌曲缓存、
 
 Docker 构建会先在 `frontend/` 中执行 `npm ci && npm run build`，再安装锁定的 Python 生产依赖并由 FastAPI 托管 `frontend/dist`，启动直接使用镜像中已经安装的 Uvicorn，不会在每次唤醒时重新安装依赖
 
+### Render 环境变量
+
+`render.yaml` 已完整列出当前本地 `.env` 的 13 个配置项，包含曲库数量、请求并发、验证并发、缓存时长、备用来源和关键词列表，部署值与本地配置一致，不再单独使用降低后的云端默认值
+
+- 曲库目标为 `500`，平台请求并发为 `3`，完整版验证并发为 `2`
+- `MUSIC_FALLBACK_SOURCES` 和 `MUSIC_KEYWORDS` 使用 JSON 数组字符串，外层使用 YAML 引号，保留 Pydantic Settings 的列表解析格式
+- 后续修改本地 `.env` 不会自动同步到 Render，需要同时更新 `render.yaml` 并推送到 GitHub，再同步 Blueprint
+- `.env` 本身继续由 `.gitignore` 和 `.dockerignore` 排除，不上传到 GitHub 或镜像
+- 如果以后增加密钥或登录凭据，仅在 Blueprint 中保留变量名并设置 `sync: false`，具体值在 Render 控制台填写
+
 ### 部署后的行为
 
 - 用户访问 Render 地址时，休眠服务会自动唤醒
