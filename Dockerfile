@@ -8,6 +8,7 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM python:3.13-slim-bookworm AS runtime
+LABEL org.opencontainers.image.authors="DataShare"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \

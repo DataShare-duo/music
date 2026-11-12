@@ -328,3 +328,11 @@ it('uses page navigation without interrupting the player', async () => {
   expect(player.playing).toBe(true)
   expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled()
 })
+
+it('credits DataShare in the page footer and about dialog', async () => {
+  await rendered()
+  expect(root.querySelector('.page-foot')?.textContent).toContain('作者：DataShare')
+  ;(root.querySelector('.side-foot') as HTMLButtonElement).click()
+  await nextTick()
+  expect(root.querySelector('[role="dialog"]')?.textContent).toContain('作者：DataShare')
+})

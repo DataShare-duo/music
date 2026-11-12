@@ -541,3 +541,10 @@ async def test_foreground_budget_includes_lock_wait(system):
     )
     async with service.db.sessions() as db:
         assert (await db.get(SongStats, id_)).listen_count == 0
+
+
+async def test_openapi_credits_project_author(system):
+    client, _, _, _ = system
+    info = (await client.get("/openapi.json")).json()["info"]
+    assert info["contact"]["name"] == "DataShare"
+    assert str(info["contact"]["url"]).rstrip("/") == "https://github.com/DataShare-duo/music"

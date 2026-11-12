@@ -23,5 +23,6 @@
     "vite": "^7.0.0",
     "vitest": "^4.1.12",
     "vue-tsc": "^3.0.0"
-  }
+  },
+  "author": "DataShare"
 }

@@ -380,7 +380,8 @@ onUnmounted(() => {
           </div>
         </section>
         <div class="page-foot">
-          听见 LISTEN & FEEL <span>给生活留一点音乐的时间 · 仅供个人非商业使用</span>
+          听见 LISTEN & FEEL
+          <span>作者：DataShare · 给生活留一点音乐的时间 · 仅供个人非商业使用</span>
         </div>
       </main>
     </div>
@@ -390,6 +391,7 @@ onUnmounted(() => {
         <button aria-label="关闭说明" @click="aboutOpen = false" class="close"><X /></button
         ><span class="modal-mark"><Waves /></span>
         <h2>简单一点，听见更多</h2>
+        <p>作者：DataShare</p>
         <p>这是个人使用的轻量音乐空间，基于 FastAPI、SQLite、Vue 和固定版本 musicdl 构建</p>
         <p>
           推荐来自热门关键词检索，不是官方热榜，仅展示通过完整版验证的歌曲，不可用歌曲暂时隐藏并定期复检，不绕过会员或访问权限

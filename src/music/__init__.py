@@ -1,5 +1,7 @@
 """FastAPI entrypoint and local CLI"""
 
+__author__ = "DataShare"
+
 
 def main() -> None:
     import uvicorn

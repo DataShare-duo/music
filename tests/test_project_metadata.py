@@ -1,0 +1,47 @@
+import json
+import re
+import tomllib
+from html.parser import HTMLParser
+
+from music import __author__
+from music.core.config import ROOT
+
+
+class AuthorParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.authors = []
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        if tag == "meta" and values.get("name") == "author":
+            self.authors.append(values.get("content"))
+
+
+def test_project_authorship_metadata():
+    with (ROOT / "pyproject.toml").open("rb") as file:
+        metadata = tomllib.load(file)
+    assert metadata["project"]["authors"] == [{"name": "DataShare"}]
+    package = json.loads((ROOT / "frontend/package.json").read_text(encoding="utf-8"))
+    assert package["author"] == __author__ == "DataShare"
+    html = AuthorParser()
+    html.feed((ROOT / "frontend/index.html").read_text(encoding="utf-8"))
+    assert html.authors == ["DataShare"]
+    assert 'org.opencontainers.image.authors="DataShare"' in (ROOT / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "CharlesPikachu"
+        in (ROOT / "THIRD_PARTY_LICENSE_MUSICDL.txt").read_text(encoding="utf-8").splitlines()[0]
+    )
+
+
+def test_readme_has_requested_structure_and_valid_local_links():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert re.findall(r"^## (.+)$", text, re.MULTILINE) == ["1、用户界面与使用", "2、部署"]
+    assert "作者：DataShare" in text
+    assert len(text.splitlines()) < 100
+    assert "```powershell" in text and text.count("```") % 2 == 0
+    for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", text):
+        if not target.startswith(("https://", "http://", "#")):
+            assert (ROOT / target.split("#", 1)[0]).is_file(), target

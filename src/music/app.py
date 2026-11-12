@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException
 
+from music import __author__
 from music.api.routes import router
 from music.core.audio_probe import AudioProbe
 from music.core.config import ROOT, Settings
@@ -50,7 +51,12 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True,
             await service.close()
             await db.engine.dispose()
 
-    app = FastAPI(title="听见 · 个人音乐空间", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="听见 · 个人音乐空间",
+        version="0.1.0",
+        contact={"name": __author__, "url": "https://github.com/DataShare-duo/music"},
+        lifespan=lifespan,
+    )
     app.state.db, app.state.service = db, service
     app.state.proxy = audio_proxy
     app.add_middleware(
