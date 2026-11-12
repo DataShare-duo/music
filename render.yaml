@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: listen-music
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: MUSIC_DATABASE_URL
+        value: sqlite+aiosqlite:///data/music.db
+      - key: MUSIC_CATALOG_TARGET
+        value: "100"
+      - key: MUSIC_PROVIDER_CONCURRENCY
+        value: "2"
+      - key: MUSIC_FULL_AUDIO_VERIFY_CONCURRENCY
+        value: "1"
+      - key: MUSIC_FULL_AUDIO_VERIFY_TIMEOUT
+        value: "30"
+      - key: MUSIC_FULL_AUDIO_RECHECK_INTERVAL
+        value: "21600"
+      - key: MUSIC_FAILURE_COOLDOWN
+        value: "60"
