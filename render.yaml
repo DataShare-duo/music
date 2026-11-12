@@ -7,6 +7,30 @@ services:
     dockerContext: .
     healthCheckPath: /api/health
     envVars:
+      - key: MUSIC_ACCESS_USERNAME
+        value: 'music'
+      - key: MUSIC_REQUEST_CONCURRENCY
+        value: '16'
+      - key: MUSIC_REQUEST_RATE_PER_MINUTE
+        value: '120'
+      - key: MUSIC_ACTION_RATE_PER_MINUTE
+        value: '20'
+      - key: MUSIC_SEARCH_TASK_LIMIT
+        value: '4'
+      - key: MUSIC_PROVIDER_QUEUE_SIZE
+        value: '6'
+      - key: MUSIC_VERIFICATION_QUEUE_SIZE
+        value: '100'
+      - key: MUSIC_STREAM_CONCURRENCY
+        value: '6'
+      - key: MUSIC_STREAM_PER_IP
+        value: '3'
+      - key: MUSIC_STREAM_PER_SESSION
+        value: '2'
+      - key: MUSIC_STREAM_MAX_SECONDS
+        value: '900'
+      - key: MUSIC_ACCESS_PASSWORD
+        sync: false
       - key: MUSIC_DATABASE_URL
         value: 'sqlite+aiosqlite:///data/music.db'
       - key: MUSIC_NETWORK_TIMEOUT

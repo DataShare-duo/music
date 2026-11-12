@@ -45,3 +45,14 @@ def test_readme_has_requested_structure_and_valid_local_links():
     for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", text):
         if not target.startswith(("https://", "http://", "#")):
             assert (ROOT / target.split("#", 1)[0]).is_file(), target
+
+
+def test_render_covers_example_settings_without_a_committed_password():
+    example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    render = (ROOT / "render.yaml").read_text(encoding="utf-8")
+    keys = re.findall(r"^(MUSIC_[A-Z_]+)=", example, re.MULTILINE)
+    render_keys = re.findall(r"- key: (MUSIC_[A-Z_]+)", render)
+    assert set(keys) <= set(render_keys)
+    assert len(render_keys) == len(set(render_keys))
+    assert "MUSIC_ACCESS_PASSWORD=\n" in example
+    assert "- key: MUSIC_ACCESS_PASSWORD\n        sync: false" in render

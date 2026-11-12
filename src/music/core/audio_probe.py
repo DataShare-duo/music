@@ -12,12 +12,12 @@ import math
 import re
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 
 import httpx
 
 from music.core.errors import AppError
+from music.core.limits import BoundedExecutor
 from music.core.streaming import audio_content
 
 BLOCK_SIZE = 32768
@@ -123,10 +123,10 @@ def parse_duration(file):
 class AudioProbe:
     def __init__(self, proxy, concurrency=2):
         self.proxy = proxy
-        self.pool = ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="audio-metadata")
+        self.executor = BoundedExecutor(concurrency, concurrency, "audio-metadata")
 
     def close(self):
-        self.pool.shutdown(wait=False, cancel_futures=True)
+        self.executor.close()
 
     async def _range(self, audio, start, end, expected_size=None):
         upstream = await self.proxy.open(audio.url, audio.headers, f"bytes={start}-{end}")
@@ -196,7 +196,7 @@ class AudioProbe:
                             pending.discard(future)
 
                 reader = RangeFile(size, first, fetch, deadline, stopped)
-                return await loop.run_in_executor(self.pool, parse_duration, reader)
+                return await self.executor.call(parse_duration, reader)
         except (TimeoutError, httpx.HTTPError) as exc:
             raise AppError("probe_network_error", "验证音频时网络超时或连接失败") from exc
         except AppError:

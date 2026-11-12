@@ -10,6 +10,7 @@ from sqlalchemy import func, select, update
 
 from music.catalog import CatalogService, track_of
 from music.core.errors import AppError
+from music.core.limits import busy
 from music.core.verification import FullAudioUnavailable
 from music.db.models import AudioLink, Playback, Song, SongStats, now
 from music.providers.official import SOURCE_NAMES, Track
@@ -47,24 +48,24 @@ class MusicService(CatalogService):
             cached = await self.cache(key)
             task = self.search_tasks.get(key)
             running = bool(task and not task.done())
+            overloaded = False
             if not running and (not cached or cached.expires_at <= now()):
-                task = asyncio.create_task(
-                    self._refresh_search(key, source, query, page, cached), name="search-metadata"
-                )
-                self.search_tasks[key] = task
-                task.add_done_callback(
-                    lambda completed: (
-                        self.search_tasks.pop(key, None)
-                        if self.search_tasks.get(key) is completed
-                        else None
-                    )
-                )
-                running = True
+                if len(self.search_tasks) >= self.settings.search_task_limit:
+                    if not cached:
+                        raise busy()
+                    overloaded = True
+                else:
+                    self._schedule_search(key, source, query, page, cached)
+                    running = True
             ids = cached.value.get("ids", []) if cached else []
             items = await self.songs(ids)
             progress = await self.progress(ids=ids)
             refreshing = running or bool(progress["verification_pending"])
-            message = cached.value.get("message") if cached else None
+            message = (
+                "服务繁忙，暂时展示已有搜索结果"
+                if overloaded
+                else (cached.value.get("message") if cached else None)
+            )
             if not message and refreshing:
                 message = "正在验证可播放歌曲，结果会逐步展示"
             if not message and not refreshing and not items:
@@ -75,11 +76,26 @@ class MusicService(CatalogService):
                 page=page,
                 has_more=cached.value.get("has_more", False) if cached else False,
                 refreshing=refreshing,
-                stale=bool(cached and (cached.expires_at <= now() or cached.value.get("failed"))),
+                stale=overloaded
+                or bool(cached and (cached.expires_at <= now() or cached.value.get("failed"))),
                 message=message,
                 updated_at=cached.updated_at if cached else None,
                 **progress,
             )
+
+    def _schedule_search(self, key, source, query, page, cached):
+        # No await between the capacity check and task registration on this loop
+        task = asyncio.create_task(
+            self._refresh_search(key, source, query, page, cached), name="search-metadata"
+        )
+        self.search_tasks[key] = task
+        task.add_done_callback(
+            lambda completed: (
+                self.search_tasks.pop(key, None)
+                if self.search_tasks.get(key) is completed
+                else None
+            )
+        )
 
     async def home(self, ids=None):
         cached = await self.cache("catalog:soda")
@@ -242,10 +258,12 @@ class MusicService(CatalogService):
                     )
                 )
                 await db.commit()
+            resolving = False
             try:
                 # Include time waiting for the same-song lock in the 30-second budget
                 async with asyncio.timeout(self.settings.full_audio_verify_timeout):
                     async with self.locks.get(f"song:{song_id}"):
+                        resolving = True
                         try:
                             preferred = (
                                 Track(**song.verified_track) if song.verified_track else None
@@ -256,7 +274,31 @@ class MusicService(CatalogService):
                             await self.hide_song(song_id, exc)
                             await self.fail(pb.id, exc)
                             raise
+            except AppError as exc:
+                if exc.code == "service_busy":
+                    async with self.db.sessions() as db:
+                        current = await db.get(Playback, pb.id)
+                        current.state, current.error_code, current.error_message = (
+                            "failed",
+                            exc.code,
+                            exc.message,
+                        )
+                        await db.commit()
+                    exc.playback_id = pb.id
+                raise
             except TimeoutError:
+                if not resolving:
+                    exc = busy()
+                    exc.playback_id = pb.id
+                    async with self.db.sessions() as db:
+                        current = await db.get(Playback, pb.id)
+                        current.state, current.error_code, current.error_message = (
+                            "failed",
+                            exc.code,
+                            exc.message,
+                        )
+                        await db.commit()
+                    raise exc from None
                 exc = FullAudioUnavailable(
                     "完整版获取超时，已暂时隐藏，冷却后自动重试", retryable=True
                 )
@@ -302,12 +344,9 @@ class MusicService(CatalogService):
             if pb.link_version != expected_version:
                 return self.playback_view(pb)
             if pb.refresh_count >= 1:
-                exc = FullAudioUnavailable(
-                    "完整版链接刷新后仍不可用，已暂时隐藏，稍后自动重新检查", retryable=True
+                raise AppError(
+                    "refresh_exhausted", "本次播放的刷新次数已用完，请重新点击歌曲播放", 409, pb.id
                 )
-                await self.hide_song(pb.song_id, exc)
-                await self.fail(pb.id, exc)
-                raise exc
             async with self.locks.get(f"song:{pb.song_id}"):
                 async with self.db.sessions() as db:
                     current = await db.get(Playback, pb.id)
@@ -325,6 +364,15 @@ class MusicService(CatalogService):
                 except FullAudioUnavailable as exc:
                     await self.hide_song(song.id, exc)
                     await self.fail(pb.id, exc)
+                    raise
+                except AppError as exc:
+                    if exc.code == "service_busy":
+                        async with self.db.sessions() as db:
+                            current = await db.get(Playback, pb.id)
+                            current.refresh_count -= 1
+                            current.state = pb.state
+                            await db.commit()
+                        exc.playback_id = pb.id
                     raise
 
     async def started(self, playback_id):

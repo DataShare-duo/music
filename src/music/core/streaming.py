@@ -178,7 +178,14 @@ async def stream_audio(service, proxy, playback_id, range_header):
             )
             retryable = exc.code in ("audio_link_expired", "invalid_audio", "stream_network_error")
             if retryable and attempt == 0:
-                await service.refresh(pb.id, link.version)
+                try:
+                    await service.refresh(pb.id, link.version)
+                except AppError as refresh_error:
+                    if refresh_error.code == "refresh_exhausted":
+                        # Unlike a redundant refresh request, this stream actually failed
+                        await service.fail(pb.id, exc)
+                        raise exc from refresh_error
+                    raise
                 continue
             if exc.status == 416:
                 await service.note_stream_error(pb.id, exc)

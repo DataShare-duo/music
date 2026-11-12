@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException
 
 from music import __author__
 from music.api.routes import router
+from music.core.access import AccessMiddleware
 from music.core.audio_probe import AudioProbe
 from music.core.config import ROOT, Settings
 from music.core.errors import AppError, error_handler
@@ -35,7 +36,10 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True,
     audio_proxy = proxy or AudioProxy(settings.network_timeout)
     service = MusicService(
         db,
-        providers or ProviderManager(settings.provider_concurrency, settings.network_timeout),
+        providers
+        or ProviderManager(
+            settings.provider_concurrency, settings.network_timeout, settings.provider_queue_size
+        ),
         settings,
         probe or AudioProbe(audio_proxy, settings.full_audio_verify_concurrency),
     )
@@ -66,6 +70,7 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True,
         allow_headers=["Content-Type", "Range"],
         expose_headers=["Content-Range", "Accept-Ranges", "X-Audio-Version"],
     )
+    app.add_middleware(AccessMiddleware, settings=settings)
     app.add_exception_handler(AppError, error_handler)
 
     @app.exception_handler(RequestValidationError)

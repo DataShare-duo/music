@@ -30,5 +30,8 @@ async def error_handler(request: Request, exc: AppError) -> JSONResponse:
                 "hidden": exc.hidden,
             }
         },
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            **({"Retry-After": "5"} if exc.status in (429, 503) else {}),
+        },
     )

@@ -6,10 +6,8 @@ Only request-protocol helpers and the official Soda share-page parser are reused
 
 from __future__ import annotations
 
-import asyncio
 import importlib
 import re
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
@@ -21,6 +19,7 @@ from urllib.parse import urlsplit
 import requests
 
 from music.core.errors import AppError
+from music.core.limits import BoundedExecutor
 
 SOURCE_NAMES = {"soda": "汽水音乐", "netease": "网易云音乐", "kuwo": "酷我音乐"}
 UPSTREAM_COMMIT = "dca2f0967e46a8faf8d279737535471102d74ca3"
@@ -213,17 +212,15 @@ class OfficialProvider:
 
 
 class ProviderManager:
-    def __init__(self, concurrency: int = 3, timeout: float = 12):
+    def __init__(self, concurrency: int = 3, timeout: float = 12, queue_size: int = 6):
         self.providers = {key: OfficialProvider(key, timeout) for key in SOURCE_NAMES}
-        self.pool = ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="music-platform")
+        self.executor = BoundedExecutor(concurrency, queue_size, "music-platform")
 
     async def _call(self, source: str, method: str, *args):
         if source not in self.providers:
             raise AppError("invalid_source", "不支持的音乐来源", 400)
         try:
-            return await asyncio.get_running_loop().run_in_executor(
-                self.pool, partial(getattr(self.providers[source], method), *args)
-            )
+            return await self.executor.call(getattr(self.providers[source], method), *args)
         except AppError:
             raise
         except requests.Timeout as exc:
@@ -255,4 +252,4 @@ class ProviderManager:
         return await self._call(source, "resolve_audio", track_id)
 
     def close(self):
-        self.pool.shutdown(wait=False, cancel_futures=True)
+        self.executor.close()

@@ -69,6 +69,8 @@ class FullAudioResolver:
                             audio.audio_kind = "full"
                             return VerifiedAudio(track, audio, duration)
                     except AppError as exc:
+                        if exc.code == "service_busy":
+                            raise
                         errors.append(exc.code)
                     return None
 
@@ -91,6 +93,8 @@ class FullAudioResolver:
                                 source, f"{original.title} {original.artist}", 1, 20
                             )
                         except AppError as exc:
+                            if exc.code == "service_busy":
+                                raise
                             errors.append(exc.code)
                             continue
                         matching = [

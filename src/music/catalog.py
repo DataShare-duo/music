@@ -9,6 +9,7 @@ from datetime import timedelta
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert
 
+from music.core.errors import AppError
 from music.core.locks import Locks
 from music.core.verification import FullAudioResolver, FullAudioUnavailable
 from music.db.models import AudioLink, Playback, ProviderCache, Song, SongStats, now
@@ -39,7 +40,7 @@ class CatalogService:
         self.search_tasks = {}
         self.worker_tasks = []
         self.scan_task = None
-        self.queue = asyncio.Queue()
+        self.queue = asyncio.Queue(maxsize=settings.verification_queue_size)
         self.scheduled = set()
         self.closing = False
 
@@ -101,12 +102,17 @@ class CatalogService:
                 logger.exception("Full-audio recheck scan failed")
 
     async def scan_due(self):
+        room = self.queue.maxsize - self.queue.qsize()
+        if self.closing or room <= 0:
+            return
         async with self.db.sessions() as db:
             ids = list(
                 await db.scalars(
                     select(Song.id)
                     .where(or_(Song.verification_state == "pending", Song.next_check_at <= now()))
+                    .where(Song.id.not_in(self.scheduled))
                     .order_by(Song.next_check_at, Song.id)
+                    .limit(room)
                 )
             )
         await self.enqueue(ids)
@@ -115,8 +121,22 @@ class CatalogService:
         if self.closing or not ids:
             return
         async with self.locks.get("verification-queue"):
+            room = self.queue.maxsize - self.queue.qsize()
+            if room <= 0:
+                return  # Persisted pending rows are picked up on the next refill/scan
             async with self.db.sessions() as db:
-                songs = list(await db.scalars(select(Song).where(Song.id.in_(ids))))
+                songs = list(
+                    await db.scalars(
+                        select(Song)
+                        .where(
+                            Song.id.in_(ids),
+                            Song.id.not_in(self.scheduled),
+                            or_(Song.verification_state == "pending", Song.next_check_at <= now()),
+                        )
+                        .order_by(Song.next_check_at, Song.id)
+                        .limit(room)
+                    )
+                )
                 scheduled = []
                 for song in songs:
                     if song.id in self.scheduled:
@@ -126,7 +146,8 @@ class CatalogService:
                     )
                     if not due:
                         continue
-                    song.verification_state = "pending"
+                    if song.verification_state != "available":
+                        song.verification_state = "pending"
                     scheduled.append(song.id)
                 await db.commit()
             for song_id in scheduled:
@@ -146,6 +167,7 @@ class CatalogService:
                             and song.next_check_at > now()
                         ):
                             continue
+                        previous_state = song.verification_state
                         song.verification_state = "verifying"
                         await db.commit()
                     try:
@@ -154,6 +176,19 @@ class CatalogService:
                         await self.save_verified(song_id, result)
                     except FullAudioUnavailable as exc:
                         await self.hide_song(song_id, exc)
+                    except AppError as exc:
+                        if exc.code != "service_busy":
+                            raise
+                        # Local saturation is not evidence that the song is unavailable
+                        async with self.db.sessions() as db:
+                            current = await db.get(Song, song_id)
+                            current.verification_state = (
+                                "available" if previous_state == "available" else "error"
+                            )
+                            current.next_check_at = now() + timedelta(
+                                seconds=self.settings.failure_cooldown
+                            )
+                            await db.commit()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -163,7 +198,13 @@ class CatalogService:
                 )
             finally:
                 self.scheduled.discard(song_id)
-                self.queue.task_done()
+                try:
+                    if not asyncio.current_task().cancelling():
+                        await self.scan_due()
+                except Exception:
+                    logger.exception("Verification queue refill failed")
+                finally:
+                    self.queue.task_done()
 
     async def save_verified(self, song_id, result, playback_id=None):
         metadata = asdict(result.track)

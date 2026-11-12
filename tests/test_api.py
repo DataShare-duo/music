@@ -109,6 +109,7 @@ async def system(tmp_path):
     settings = Settings(
         database_url=f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}",
         frontend_dist=tmp_path / "dist",
+        access_password="test-music-password-123",
         catalog_target=20,
         keywords=["热门"],
     )
@@ -118,7 +119,9 @@ async def system(tmp_path):
         await connection.run_sync(Base.metadata.create_all)
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+            auth=("music", "test-music-password-123"),
         ) as client:
             yield client, app.state.service, providers, proxy
 
@@ -298,7 +301,11 @@ async def test_expired_stream_refreshes_once_and_persists_version(system):
     exhausted = await client.post(
         f"/api/playbacks/{pb['id']}/refresh", json={"expected_version": current["link_version"]}
     )
-    assert exhausted.json()["error"]["hidden"]
+    assert exhausted.status_code == 409
+    assert exhausted.json()["error"]["code"] == "refresh_exhausted"
+    assert not exhausted.json()["error"]["hidden"]
+    async with service.db.sessions() as db:
+        assert (await db.get(Song, id_)).verification_state == "available"
     assert all(stream.closed for stream in proxy.streams)
 
 
@@ -537,7 +544,8 @@ async def test_foreground_budget_includes_lock_wait(system):
     async with asyncio.timeout(1):
         responses = await asyncio.gather(playback(client, id_), playback(client, id_))
     assert all(
-        response.json()["error"]["code"] == "full_audio_unavailable" for response in responses
+        response.json()["error"]["code"] in ("full_audio_unavailable", "service_busy")
+        for response in responses
     )
     async with service.db.sessions() as db:
         assert (await db.get(SongStats, id_)).listen_count == 0

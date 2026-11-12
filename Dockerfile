@@ -40,4 +40,4 @@ ENV MUSIC_DATABASE_URL=sqlite+aiosqlite:///data/music.db \
 USER app
 EXPOSE 10000
 # Use the preinstalled environment directly, without syncing dependencies at startup
-CMD ["sh","-c","exec /app/.venv/bin/uvicorn music.app:app --host 0.0.0.0 --port \"${PORT:-10000}\" --workers 1"]
+CMD ["sh","-c","exec /app/.venv/bin/uvicorn music.app:app --host 0.0.0.0 --port \"${PORT:-10000}\" --workers 1 --no-proxy-headers"]
