@@ -65,26 +65,26 @@ page {
   height: 80rpx;
   padding: 0;
   margin: 0;
-  border: 1rpx solid #ffffff20;
-  border-radius: 50%;
-  background: #ffffff0a;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .collapse::after,
 .control-button::after {
   border: 0;
 }
 .collapse-pressed {
-  background: #ffffff20;
+  opacity: 0.6;
 }
 .collapse-chevron {
   box-sizing: border-box;
-  width: 21rpx;
-  height: 21rpx;
-  border-right: 3rpx solid #ffffffe6;
+  width: 18rpx;
+  height: 18rpx;
+  border-left: 3rpx solid #ffffffe6;
   border-bottom: 3rpx solid #ffffffe6;
   border-radius: 1rpx;
   transform: rotate(45deg);
-  margin-top: -9rpx;
+  margin-left: 8rpx;
 }
 .header-copy text {
   display: block;

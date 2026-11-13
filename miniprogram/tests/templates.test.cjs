@@ -94,7 +94,7 @@ test("fullscreen controls use geometric icons with state, accessibility and touc
   const css = await fs.readFile(path.join(root, "index.wxss"), "utf8");
   const { checkTemplate } = await checker();
   assert.doesNotThrow(() => checkTemplate(markup, "full-player"));
-  assert.match(markup, /aria-label="收起播放器，返回音乐页面" bindtap="back"/);
+  assert.match(markup, /aria-label="返回音乐页面" bindtap="back"/);
   assert.ok(markup.includes('class="collapse-chevron"'));
   assert.ok(markup.includes('wx:if="{{loading}}" class="control-spinner"'));
   assert.ok(markup.includes('wx:elif="{{playing}}" class="control-pause"'));
@@ -123,4 +123,30 @@ test("fullscreen controls use geometric icons with state, accessibility and touc
   assert.match(css, /width: 124rpx;[\s\S]*height: 124rpx/);
   assert.ok(css.includes("background: currentColor"));
   assert.ok(css.includes("safe-area-inset-bottom"));
+});
+
+test("fullscreen back is a small left chevron without a circle and keeps the transparent touch target", async () => {
+  const css = await fs.readFile(
+    path.resolve(__dirname, "../src/pages/player/index.wxss"),
+    "utf8",
+  );
+  const rule = (name) => {
+    const start = css.indexOf(name + " {");
+    assert.notEqual(start, -1);
+    return css.slice(start, css.indexOf("}", start));
+  };
+  const button = rule(".collapse");
+  assert.match(button, /width: 80rpx/);
+  assert.match(button, /height: 80rpx/);
+  assert.match(button, /border: 0/);
+  assert.match(button, /border-radius: 0/);
+  assert.match(button, /background: transparent/);
+  const chevron = rule(".collapse-chevron");
+  assert.match(chevron, /width: 18rpx/);
+  assert.match(chevron, /height: 18rpx/);
+  assert.match(chevron, /border-left: 3rpx solid/);
+  assert.match(chevron, /border-bottom: 3rpx solid/);
+  assert.match(chevron, /rotate\(45deg\)/);
+  assert.ok(!chevron.includes("border-right"));
+  assert.ok(!rule(".collapse-pressed").includes("background"));
 });
