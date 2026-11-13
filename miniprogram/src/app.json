@@ -1,11 +1,18 @@
 {
-  "pages": ["pages/verify/index", "pages/diagnostics/index"],
+  "pages": [
+    "pages/home/index",
+    "pages/search/index",
+    "pages/diagnostics/index",
+    "pages/verify/index",
+    "page/index/index"
+  ],
   "window": {
-    "navigationBarTitleText": "听见 · 链路验证",
+    "navigationBarTitleText": "听见 · 音乐空间",
     "navigationBarBackgroundColor": "#fbf8f3",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#fbf8f3"
   },
   "requiredBackgroundModes": ["audio"],
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "entryPagePath": "pages/home/index"
 }

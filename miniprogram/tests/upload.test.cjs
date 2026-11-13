@@ -26,10 +26,17 @@ async function fixture(t) {
   await fs.writeFile(
     path.join(projectDir, "dist/app.json"),
     JSON.stringify({
-      pages: ["pages/verify/index"],
+      pages: ["pages/home/index", "page/index/index"],
+      entryPagePath: "pages/home/index",
       requiredBackgroundModes: ["audio"],
     }),
   );
+  for (const page of ["pages/home/index", "page/index/index"]) {
+    const base = path.join(projectDir, "dist", page);
+    await fs.mkdir(path.dirname(base), { recursive: true });
+    await fs.writeFile(base + ".js", "Page({})");
+    await fs.writeFile(base + ".wxml", "<view>music</view>");
+  }
   const keyPath = path.join(root, "outside.key");
   const pair = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -167,4 +174,19 @@ test("errors are classified without exposing keys, raw error messages or identif
     safeFailure(new UploadError("key_missing", "请设置路径")),
     /key_missing/,
   );
+});
+
+test("upload refuses default route mismatches and missing registered pages", async (t) => {
+  const { validateUpload } = await core();
+  const options = await fixture(t);
+  const appPath = path.join(options.projectDir, "dist/app.json");
+  const app = JSON.parse(await fs.readFile(appPath, "utf8"));
+  await fs.writeFile(
+    appPath,
+    JSON.stringify({ ...app, entryPagePath: "missing/index" }),
+  );
+  await assert.rejects(validateUpload(options), { code: "entry_invalid" });
+  await fs.writeFile(appPath, JSON.stringify(app));
+  await fs.rm(path.join(options.projectDir, "dist/page/index/index.wxml"));
+  await assert.rejects(validateUpload(options), { code: "entry_invalid" });
 });

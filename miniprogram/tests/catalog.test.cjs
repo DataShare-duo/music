@@ -90,3 +90,26 @@ test("verification and idle polling intervals differ and errors are visible", as
     global.setTimeout = original;
   }
 });
+
+test("resume is idempotent while visible and never duplicates submitted search", async () => {
+  let calls = 0;
+  const catalog = new Catalog(
+    {
+      get: async () => {
+        calls++;
+        return result("ok");
+      },
+    },
+    () => {},
+  );
+  catalog.resume();
+  await flush();
+  catalog.resume();
+  await flush();
+  assert.equal(calls, 1);
+  catalog.change("search", "one", "kuwo", 1);
+  catalog.resume();
+  await flush();
+  assert.equal(calls, 2);
+  catalog.pause();
+});

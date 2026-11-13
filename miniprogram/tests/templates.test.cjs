@@ -8,17 +8,30 @@ const checker = () =>
     pathToFileURL(path.resolve(__dirname, "../scripts/template-check.mjs")).href
   );
 
-test("WXML attributes use real operators rather than HTML entity expressions", async () => {
+test("native search and player attributes use real operators, brand text does not show HTML entities", async () => {
   const { checkTemplate } = await checker();
   const source = await fs.readFile(
-    path.resolve(__dirname, "../src/pages/verify/index.wxml"),
+    path.resolve(__dirname, "../src/pages/search/index.wxml"),
     "utf8",
   );
-  assert.doesNotThrow(() => checkTemplate(source, "verify"));
-  assert.ok(source.includes("{{page <= 1 || loading}}"));
-  assert.ok(
-    source.includes("{{!player.title || (player.loading && !player.failed)}}"),
+  const player = await fs.readFile(
+    path.resolve(__dirname, "../src/components/player-bar/index.wxml"),
+    "utf8",
   );
+  const home = await fs.readFile(
+    path.resolve(__dirname, "../src/pages/home/index.wxml"),
+    "utf8",
+  );
+  for (const [name, text] of [
+    ["search", source],
+    ["player", player],
+    ["home", home],
+  ])
+    assert.doesNotThrow(() => checkTemplate(text, name));
+  assert.ok(source.includes("{{page <= 1 || loading}}"));
+  assert.ok(player.includes("{{!hasSong || (loading && !failed)}}"));
+  assert.ok(home.includes("LISTEN & FEEL") && !home.includes("&amp;"));
+  assert.ok(!home.includes("第一阶段") && !home.includes("真机直连验证版"));
 });
 test("build rejects escaped expression operators but permits entities in plain text", async () => {
   const { checkTemplate } = await checker();

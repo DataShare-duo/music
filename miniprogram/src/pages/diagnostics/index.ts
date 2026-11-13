@@ -1,8 +1,12 @@
 import { MusicApp } from "../../app";
 import { time } from "../../types";
+import { api } from "../../services/api";
+import { openHome } from "../../routes";
 
 Page({
   data: {
+    healthLoading: false,
+    cloudStatus: "尚未检查云服务",
     events: [] as string[],
     song: "尚未选择歌曲",
     source: "",
@@ -39,7 +43,31 @@ Page({
   toggle() {
     void getApp<MusicApp>().player?.toggle();
   },
+  async checkHealth() {
+    this.setData({ healthLoading: true, cloudStatus: "通过云调用检查…" });
+    try {
+      const result = await api.get<{ status: string; database: string }>(
+        "/api/health",
+      );
+      this.setData({
+        cloudStatus:
+          result.status === "ok" && result.database === "ok"
+            ? "云调用与数据库正常"
+            : "健康检查未通过",
+      });
+    } catch (e) {
+      this.setData({
+        cloudStatus: e instanceof Error ? e.message : "云调用失败",
+      });
+    } finally {
+      this.setData({ healthLoading: false });
+    }
+  },
   back() {
-    wx.navigateBack();
+    wx.navigateBack({
+      fail() {
+        openHome();
+      },
+    });
   },
 });

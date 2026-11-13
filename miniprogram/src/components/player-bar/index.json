@@ -1,0 +1,4 @@
+{
+  "component": true,
+  "usingComponents": { "cover-art": "/components/cover-art/index" }
+}

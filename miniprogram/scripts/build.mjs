@@ -45,5 +45,5 @@ async function assets(directory) {
 }
 await assets(path.join(root, "src"));
 console.log(
-  "Native build complete: dist (verification stage, not device certification)",
+  "Native build complete: dist (native music UI; new build still requires device checks)",
 );

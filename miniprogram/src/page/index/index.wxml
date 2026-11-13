@@ -1,0 +1,1 @@
+<view style="padding:80rpx 40rpx;text-align:center"><text>正在进入听见音乐…</text><button bindtap="retry">进入首页</button></view>

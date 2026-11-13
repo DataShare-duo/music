@@ -1,0 +1,1 @@
+<view class="art"><image wx:if="{{safeUrl && !broken}}" src="{{safeUrl}}" mode="aspectFill" lazy-load="{{true}}" binderror="failed"/><view wx:else class="placeholder"><text>♪</text><view class="groove"></view></view></view>

@@ -1,4 +1,5 @@
 import { config } from "./config";
+import { openHome } from "./routes";
 import { api, newRequestId } from "./services/api";
 import { NativePlayer } from "./services/player";
 
@@ -26,6 +27,9 @@ App({
       this.startupError =
         "背景播放器或云能力初始化失败，请核实当前账号的类目与后台音频权限";
     }
+  },
+  onPageNotFound() {
+    openHome();
   },
   onShow() {
     this.player?.lifecycle(true);

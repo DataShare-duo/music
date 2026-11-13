@@ -37,3 +37,22 @@ def test_native_generated_and_private_files_do_not_enter_web_container():
     assert package["author"] == "DataShare"
     assert set(("build", "test", "upload")) <= package["scripts"].keys()
     assert (ROOT / "miniprogram/package-lock.json").is_file()
+
+
+def test_native_entry_and_experience_qr_compatibility_are_consistent():
+    root = ROOT / "miniprogram"
+    app = json.loads((root / "src/app.json").read_text(encoding="utf-8"))
+    project = json.loads((root / "project.config.json").read_text(encoding="utf-8"))
+    assert app["entryPagePath"] == app["pages"][0] == "pages/home/index"
+    assert project["condition"]["miniprogram"]["list"][0]["pathName"] == app["entryPagePath"]
+    assert "page/index/index" in app["pages"]
+    assert "pages/verify/index" in app["pages"]
+    assert "onPageNotFound" in (root / "src/app.ts").read_text(encoding="utf-8")
+    for page in ("page/index/index", "pages/verify/index"):
+        assert "openHome()" in (root / "src" / f"{page}.ts").read_text(encoding="utf-8")
+    assert "第一阶段" not in (root / "src/pages/home/index.wxml").read_text(encoding="utf-8")
+    assert "&amp;" not in (root / "src/pages/home/index.wxml").read_text(encoding="utf-8")
+    for page in ("home", "search"):
+        config = json.loads((root / f"src/pages/{page}/index.json").read_text(encoding="utf-8"))
+        assert config["usingComponents"]["player-bar"] == "/components/player-bar/index"
+        assert "<player-bar" in (root / f"src/pages/{page}/index.wxml").read_text(encoding="utf-8")

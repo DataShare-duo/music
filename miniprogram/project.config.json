@@ -1,5 +1,5 @@
 {
-  "description": "DataShare 听见原生小程序：第一阶段直连与后台播放验证版",
+  "description": "DataShare 听见原生音乐小程序",
   "appid": "wxe1af0ed55ed257b7",
   "projectname": "听见音乐",
   "compileType": "miniprogram",
@@ -30,5 +30,18 @@
         "value": "scripts"
       }
     ]
+  },
+  "condition": {
+    "miniprogram": {
+      "current": 0,
+      "list": [
+        {
+          "id": 0,
+          "name": "发现音乐",
+          "pathName": "pages/home/index",
+          "query": ""
+        }
+      ]
+    }
   }
 }

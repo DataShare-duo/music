@@ -48,7 +48,7 @@ export class NativePlayer {
     position: 0,
     duration: 0,
     sourceName: "",
-    message: "选择已验证歌曲，开始真机链路测试",
+    message: "让好音乐，陪你一会儿",
     sessionId: "",
     linkVersion: 0,
     events: [],

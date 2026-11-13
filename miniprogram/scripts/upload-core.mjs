@@ -59,6 +59,25 @@ export async function validateUpload({
   if (!app.requiredBackgroundModes?.includes("audio") || !app.pages?.length)
     throw new UploadError("build_invalid", "构建未声明后台音频或原生页面");
   if (
+    app.entryPagePath !== "pages/home/index" ||
+    app.pages[0] !== app.entryPagePath ||
+    !app.pages.includes("page/index/index")
+  )
+    throw new UploadError(
+      "entry_invalid",
+      "默认首页或旧体验版兼容路径未声明，停止上传",
+    );
+  for (const page of app.pages) {
+    if (!/^(?:pages|page)\/[A-Za-z0-9_/-]+$/.test(page))
+      throw new UploadError("entry_invalid", "页面路径无效");
+    try {
+      await fs.access(path.join(dist, page + ".js"));
+      await fs.access(path.join(dist, page + ".wxml"));
+    } catch {
+      throw new UploadError("entry_invalid", "声明的页面未构建完成，停止上传");
+    }
+  }
+  if (
     !/^[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7,12}$/.test(version) ||
     !version.endsWith(commit)
   )
@@ -201,7 +220,7 @@ export async function uploadValidated(ci, config) {
   await ci.upload({
     project,
     version: config.version,
-    desc: "DataShare 原生直连/后台播放验证版 · " + config.commit,
+    desc: "DataShare 听见原生音乐界面开发版 · " + config.commit,
     robot: config.robot,
     setting: { es6: true, minify: true },
     onProgressUpdate: () => {},
@@ -212,7 +231,8 @@ export async function uploadValidated(ci, config) {
     version: config.version,
     commit: config.commit,
     robot: config.robot,
-    stage: "verification",
+    stage: "native-ui",
+    entryPagePath: "pages/home/index",
     devicePlaybackVerified: false,
     reviewSubmitted: false,
     published: false,

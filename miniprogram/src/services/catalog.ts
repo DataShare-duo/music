@@ -33,6 +33,7 @@ export class Catalog {
     this.changed({ ...this.state });
   }
   resume(): void {
+    if (this.active) return;
     this.active = true;
     void this.load();
   }

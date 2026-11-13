@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "cover-art": "/components/cover-art/index",
+    "player-bar": "/components/player-bar/index"
+  },
+  "enablePullDownRefresh": false,
+  "navigationBarTitleText": "听见 · 搜索歌曲"
+}

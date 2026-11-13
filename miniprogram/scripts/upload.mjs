@@ -35,7 +35,7 @@ try {
     robot: Number(process.env.WECHAT_UPLOAD_ROBOT || "1"),
   });
   console.log(
-    "Uploading native verification build, AppID " +
+    "Uploading native music build, AppID " +
       config.appId +
       ", version " +
       config.version,
