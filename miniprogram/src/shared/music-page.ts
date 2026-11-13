@@ -13,6 +13,16 @@ export function presentSongs(songs: Song[]) {
   }));
 }
 
+// Decode only the navigation boundary, not typed queries or API parameters.
+function decodeSearchQuery(value = ""): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    // A malformed external route must not prevent the search page from loading.
+    return value;
+  }
+}
+
 export function registerMusicPage(mode: "home" | "search"): void {
   Page({
     data: {
@@ -51,7 +61,7 @@ export function registerMusicPage(mode: "home" | "search"): void {
     onLoad(options: Record<string, string>) {
       const app = getApp<MusicApp>();
       this.startupError = app.startupError;
-      const query = options.q || "";
+      const query = decodeSearchQuery(options.q);
       const requested = options.source;
       const source: Source =
         requested === "netease" || requested === "kuwo" ? requested : "soda";

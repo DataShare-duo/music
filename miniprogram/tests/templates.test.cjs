@@ -49,3 +49,34 @@ test("build rejects escaped expression operators but permits entities in plain t
     ),
   );
 });
+
+test("search entry is a whole-card button, pagination stays a row and empty text is stacked", async () => {
+  const read = (file) =>
+    fs.readFile(path.resolve(__dirname, "../src/", file), "utf8");
+  const home = await read("pages/home/index.wxml");
+  const search = await read("pages/search/index.wxml");
+  const css = await read("app.wxss");
+  assert.match(home, /<button class="search-entry"[^>]*bindtap="openSearch"/);
+  assert.ok(home.includes('class="search-entry-title">搜索歌曲'));
+  assert.ok(home.includes('class="search-entry-hint"'));
+  assert.ok(!home.includes('class="navigation"'));
+  assert.ok(
+    search.includes('class="page-indicator"') &&
+      search.includes('class="page-current"'),
+  );
+  assert.ok(search.includes('disabled="{{!hasMore || loading}}"'));
+  assert.ok(search.includes('disabled="{{page <= 1 || loading}}"'));
+  const rule = (selector) => {
+    const marker = selector + " {";
+    const index = css.indexOf(marker);
+    assert.notEqual(index, -1, "missing " + selector);
+    return css.slice(index + marker.length, css.indexOf("}", index));
+  };
+  assert.match(rule(".pagination"), /display: flex/);
+  assert.match(rule(".pagination"), /flex-direction: row/);
+  assert.match(rule(".pagination .page-button"), /min-height: 80rpx/);
+  assert.match(rule(".pagination .page-button[disabled]"), /opacity: 1/);
+  assert.match(rule(".music-page .empty"), /flex-direction: column/);
+  assert.match(rule(".empty-title"), /display: block/);
+  assert.match(rule(".empty .muted"), /display: block/);
+});

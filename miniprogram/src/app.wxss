@@ -220,28 +220,74 @@ text {
   letter-spacing: 2rpx;
   color: #8b806b;
 }
-.navigation {
+.search-entry {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14rpx 0 36rpx;
-  margin-bottom: 10rpx;
-  border-bottom: 1rpx solid #ece5d9;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  margin: 26rpx 0 38rpx;
+  padding: 26rpx 24rpx;
+  border: 2rpx solid #efd8c9;
+  border-radius: 26rpx;
+  background: #fff4ea;
+  box-shadow: 0 8rpx 24rpx rgba(156, 97, 59, 0.06);
+  line-height: 1.5;
 }
-.navigation-active {
-  font-size: 27rpx;
-  color: #4f5e40;
+.search-entry-pressed {
+  background: #f8e8d9;
+}
+.search-entry-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 24rpx;
+  background: #d66a42;
+}
+.search-entry-lens {
+  position: relative;
+  width: 25rpx;
+  height: 25rpx;
+  border: 4rpx solid #fff;
+  border-radius: 50%;
+  margin: -6rpx 6rpx 0 0;
+}
+.search-entry-lens::after {
+  content: "";
+  position: absolute;
+  width: 15rpx;
+  height: 4rpx;
+  right: -12rpx;
+  bottom: -6rpx;
+  border-radius: 4rpx;
+  background: #fff;
+  transform: rotate(45deg);
+}
+.search-entry-copy {
+  flex: 1;
+  min-width: 0;
+  margin: 0 20rpx;
+}
+.search-entry-title {
+  display: block;
+  font-size: 31rpx;
   font-weight: 600;
+  color: #634532;
 }
-.navigation button {
-  font-size: 25rpx;
-  color: #8c917f;
-  padding: 0;
-  line-height: 2;
+.search-entry-hint {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #967c65;
 }
-.navigation button text {
+.search-entry-arrow {
+  flex-shrink: 0;
+  font-size: 36rpx;
   color: #d66a42;
-  margin-left: 16rpx;
 }
 .music-page .section-head {
   margin-top: 32rpx;
@@ -516,6 +562,9 @@ text {
   color: #adb09e;
 }
 .music-page .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 60rpx 16rpx;
   gap: 12rpx;
   text-align: center;
@@ -534,11 +583,15 @@ text {
   margin-bottom: 12rpx;
 }
 .empty-title {
+  display: block;
+  line-height: 1.6;
   font-weight: 600;
   color: #828b70;
   font-size: 26rpx;
 }
 .empty .muted {
+  display: block;
+  max-width: 540rpx;
   font-size: 22rpx;
   line-height: 1.8;
 }
@@ -717,4 +770,75 @@ text {
 .about-panel .outline {
   color: #879675;
   border-color: #dce3d2;
+}
+
+/* A single row with equal touch targets, including narrow phone screens. */
+.pagination {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin: 32rpx 0 12rpx;
+  padding: 14rpx;
+  border: 1rpx solid #ece5d9;
+  border-radius: 26rpx;
+  background: #f5f0e8;
+}
+.pagination .page-button {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 12rpx;
+  min-height: 80rpx;
+  line-height: 1.5;
+  font-size: 25rpx;
+  white-space: nowrap;
+  color: #675d4d;
+  border: 1rpx solid #e4dacc;
+  border-radius: 18rpx;
+  background: #fffcf7;
+}
+.pagination .page-button-next {
+  background: #d66a42;
+  border-color: #d66a42;
+  color: #fff;
+}
+.pagination .page-button-pressed {
+  background: #ead8c7;
+  color: #634532;
+}
+.pagination .page-button[disabled] {
+  opacity: 1;
+  color: #aaa295;
+  border-color: #e7e0d5;
+  background: #ede8df;
+}
+.page-arrow {
+  font-size: 36rpx;
+  line-height: 1;
+}
+.page-indicator {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  min-width: 110rpx;
+}
+.page-indicator-label {
+  color: #958b7c;
+  font-size: 21rpx;
+}
+.page-current {
+  min-width: 30rpx;
+  color: #745842;
+  font-size: 29rpx;
+  font-weight: 600;
+  text-align: center;
 }

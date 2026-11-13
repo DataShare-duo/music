@@ -168,3 +168,91 @@ test("source label and playable time formatting do not render playback kind", ()
   assert.equal(view.sourceText, "网易云音乐");
   assert.equal(view.number, "01");
 });
+
+// Reproduce the actual navigation boundary, not just the outgoing URL.
+test("all six mood routes decode once for both input and cloud search", async () => {
+  const { page: home } = make("home");
+  const moods = home.data.moods.map((mood) => mood.title);
+  home.onUnload();
+  for (const query of moods) {
+    home.mood({ currentTarget: { dataset: { query } } });
+    const encoded = navigation.at(-1).split("?q=")[1];
+    const { page } = make("search", { q: encoded });
+    try {
+      assert.equal(page.data.query, query);
+      assert.equal(page.data.searched, query);
+      assert.equal(page.catalog.query, query);
+      page.onShow();
+      await flush();
+      assert.equal(calls.length, 1);
+      assert.equal(
+        new URL(calls[0].path, "https://test.invalid").searchParams.get("q"),
+        query,
+      );
+    } finally {
+      page.onHide();
+      page.onUnload();
+    }
+  }
+});
+test("route decoding preserves special and literal encoded characters and tolerates malformed external routes", async () => {
+  const queries = [
+    "华语 流行",
+    "A&B + C",
+    "音乐 🎵",
+    "100%喜欢",
+    "%41",
+    "%E6%8A%96",
+  ];
+  const routes = queries.map((query) => [encodeURIComponent(query), query]);
+  routes.push(["已经是中文", "已经是中文"], ["损坏%E6%ZZ", "损坏%E6%ZZ"]);
+  for (const [route, query] of routes) {
+    const { page } = make("search", { q: route });
+    try {
+      page.onShow();
+      await flush();
+      assert.equal(page.data.query, query);
+      assert.equal(page.data.searched, query);
+      assert.equal(
+        new URL(calls[0].path, "https://test.invalid").searchParams.get("q"),
+        query,
+      );
+      page.sourceChange({ detail: { value: "2" } });
+      await flush();
+      page.nextPage();
+      await flush();
+      const request = new URL(calls.at(-1).path, "https://test.invalid");
+      assert.equal(request.searchParams.get("q"), query);
+      assert.equal(request.searchParams.get("source"), "kuwo");
+      assert.equal(request.searchParams.get("page"), "2");
+    } finally {
+      page.onHide();
+      page.onUnload();
+    }
+  }
+});
+test("manual searches are never URI-decoded and pagination honors disabled states", async () => {
+  const { page } = make("search");
+  try {
+    page.onShow();
+    page.setData({ query: "%41 + 民谣" });
+    page.search();
+    await flush();
+    assert.equal(
+      new URL(calls[0].path, "https://test.invalid").searchParams.get("q"),
+      "%41 + 民谣",
+    );
+    const count = calls.length;
+    page.previousPage();
+    page.setData({ hasMore: false });
+    page.nextPage();
+    assert.equal(calls.length, count);
+    assert.equal(page.data.page, 1);
+    page.setData({ hasMore: true, loading: true });
+    page.nextPage();
+    assert.equal(calls.length, count);
+  } finally {
+    page.onHide();
+    page.onUnload();
+  }
+});
