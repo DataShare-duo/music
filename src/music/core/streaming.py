@@ -74,7 +74,7 @@ class AudioProxy:
     def __init__(self, timeout=12):
         self.timeout = timeout
 
-    async def open(self, url, headers, range_header=None):
+    async def open(self, url, headers, range_header=None, *, https_only=False):
         safe_headers = {
             k: v for k, v in headers.items() if k.lower() in ("user-agent", "referer", "origin")
         }
@@ -84,6 +84,8 @@ class AudioProxy:
                 raise AppError("invalid_range", "只支持单段字节范围请求", 416)
             safe_headers["Range"] = range_header
         for _ in range(6):
+            if https_only and urlsplit(url).scheme != "https":
+                raise AppError("unsafe_audio_url", "小程序音频及所有重定向必须使用 HTTPS", 409)
             pinned, host, authority = await public_target(url)
             # New pool per upstream request also avoids sharing TLS/SNI across hostnames on one IP
             client = httpx.AsyncClient(

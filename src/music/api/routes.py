@@ -60,7 +60,7 @@ async def create_playback(song_id: int, body: CreatePlayback, request: Request):
 @router.get("/playbacks/{playback_id}", response_model=PlaybackView)
 async def playback(playback_id: str, request: Request):
     service = request.app.state.service
-    return service.playback_view(await service.get_playback(playback_id))
+    return service.playback_view(await service.get_playback(playback_id, "proxy"))
 
 
 @router.post("/playbacks/{playback_id}/started")

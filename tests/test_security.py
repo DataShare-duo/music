@@ -81,3 +81,28 @@ def test_audio_sniffing():
     assert not audio_content({"content-type": "audio/mpeg"}, b"<html>blocked</html>", None)
     assert not audio_content({"content-type": "text/html"}, b"blocked", None)
     assert not audio_content({}, b"random", None)
+
+
+async def test_native_strict_https_rejects_plain_http_before_network():
+    with pytest.raises(AppError) as error:
+        await AudioProxy().open("http://example.com/audio", {}, https_only=True)
+    assert error.value.code == "unsafe_audio_url"
+
+
+async def test_native_redirect_cannot_downgrade_https(monkeypatch):
+    import music.core.streaming as module
+
+    async def target(url):
+        return httpx.URL("https://93.184.216.34/audio"), "example.com", "example.com"
+
+    monkeypatch.setattr(module, "public_target", target)
+    original_client = httpx.AsyncClient
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(302, headers={"location": "http://example.com/audio"})
+    )
+    monkeypatch.setattr(
+        module.httpx, "AsyncClient", lambda **kwargs: original_client(transport=transport)
+    )
+    with pytest.raises(AppError) as error:
+        await AudioProxy().open("https://example.com/audio", {}, https_only=True)
+    assert error.value.code == "unsafe_audio_url"

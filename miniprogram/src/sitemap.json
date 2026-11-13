@@ -1,0 +1,9 @@
+{
+  "desc": "开发验证页不建立搜索索引",
+  "rules": [
+    {
+      "action": "disallow",
+      "page": "*"
+    }
+  ]
+}

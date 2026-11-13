@@ -42,6 +42,7 @@ class ResolvedAudio:
     headers: dict[str, str]
     audio_kind: Literal["preview", "full", "unknown"] = "unknown"
     expires_at: datetime | None = None
+    https_only: bool = False
 
 
 def cover(value) -> str:

@@ -129,7 +129,10 @@ class AudioProbe:
         self.executor.close()
 
     async def _range(self, audio, start, end, expected_size=None):
-        upstream = await self.proxy.open(audio.url, audio.headers, f"bytes={start}-{end}")
+        options = {"https_only": True} if audio.https_only else {}
+        upstream = await self.proxy.open(
+            audio.url, audio.headers, f"bytes={start}-{end}", **options
+        )
         try:
             response = upstream.response
             if response.status_code in (401, 403, 404, 410):

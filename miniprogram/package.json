@@ -1,0 +1,16 @@
+{
+  "name": "listen-music-miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "author": "DataShare",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && node --test tests/*.test.cjs",
+    "upload": "npm test && node scripts/upload.mjs"
+  },
+  "devDependencies": {
+    "miniprogram-api-typings": "5.3.1",
+    "miniprogram-ci": "2.1.31",
+    "typescript": "~5.9.0"
+  }
+}

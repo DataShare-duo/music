@@ -13,3 +13,8 @@
 .env.*
 !.env.example
 output
+
+# Native mini program is uploaded separately, never packaged in the Web service
+miniprogram
+**/*.key
+**/*.pem

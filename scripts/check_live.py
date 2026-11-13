@@ -8,6 +8,7 @@ import sys
 
 from music.core.audio_probe import AudioProbe
 from music.core.config import Settings
+from music.core.direct_audio import DirectAudioCheck
 from music.core.errors import AppError
 from music.core.streaming import AudioProxy, audio_content
 from music.core.verification import FullAudioResolver
@@ -42,8 +43,16 @@ async def main(args):
         )
         if not tracks:
             raise AppError("empty_results", "真实搜索无结果，未通过联调")
-        if args.full:
+        if args.full or args.direct:
             result = await FullAudioResolver(providers, probe, settings).resolve(tracks[0])
+            if args.direct:
+                await DirectAudioCheck(probe, settings.full_audio_verify_timeout).check(result)
+                print(
+                    json.dumps(
+                        {"direct_preflight_passed": True, "device_playback_verified": False},
+                        ensure_ascii=False,
+                    )
+                )
             print(
                 json.dumps(
                     {
@@ -109,6 +118,11 @@ if __name__ == "__main__":
         "--full",
         action="store_true",
         help="Verify actual audio duration with strict fallback matching",
+    )
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="Probe header-free HTTPS full audio; does not certify native device playback",
     )
     try:
         asyncio.run(main(parser.parse_args()))

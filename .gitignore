@@ -17,3 +17,12 @@ coverage/
 .playwright-cli/
 frontend/*.tsbuildinfo
 output/playwright/
+
+# Native mini program: generated files and private upload material
+miniprogram/node_modules/
+miniprogram/dist/
+miniprogram/.local/
+miniprogram/project.private.config.json
+miniprogram/*.tsbuildinfo
+*.key
+*.pem

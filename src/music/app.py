@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException
 
 from music import __author__
+from music.api.native import router as native_router
 from music.api.routes import router
 from music.core.access import AccessMiddleware
 from music.core.audio_probe import AudioProbe
@@ -114,6 +115,7 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True,
         )
 
     app.include_router(router)
+    app.include_router(native_router)
 
     @app.get("/{path:path}", include_in_schema=False)
     async def frontend(path: str):

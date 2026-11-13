@@ -9,12 +9,13 @@ from uuid import uuid4
 from sqlalchemy import func, select, update
 
 from music.catalog import CatalogService, track_of
+from music.core.direct_audio import DirectAudioCheck
 from music.core.errors import AppError
 from music.core.limits import busy
 from music.core.verification import FullAudioUnavailable
 from music.db.models import AudioLink, Playback, Song, SongStats, now
 from music.providers.official import SOURCE_NAMES, Track
-from music.schemas.api import PlaybackView, SongList
+from music.schemas.api import NativePlaybackView, PlaybackView, SongList
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +188,22 @@ class MusicService(CatalogService):
 
     def playback_view(self, pb):
         source = pb.play_source
+        if pb.transport == "direct":
+            return NativePlaybackView(
+                id=pb.id,
+                song_id=pb.song_id,
+                state=pb.state,
+                audio_url=pb.audio_url if pb.state in ("ready", "playing") else None,
+                link_version=pb.link_version,
+                refresh_count=pb.refresh_count,
+                expires_at=pb.expires_at,
+                play_source=source,
+                play_source_name=SOURCE_NAMES.get(source),
+                audio_duration=pb.audio_duration,
+                error={"code": pb.error_code, "message": pb.error_message}
+                if pb.error_code
+                else None,
+            )
         return PlaybackView(
             id=pb.id,
             song_id=pb.song_id,
@@ -207,17 +224,38 @@ class MusicService(CatalogService):
         return await self.verifier.resolve(original, preferred=preferred)
 
     async def _save_playback(self, pb, verified):
+        direct_url = None
+        if pb.transport == "direct":
+            checker = getattr(self, "direct_check", None) or DirectAudioCheck(
+                self.probe, self.settings.full_audio_verify_timeout
+            )
+            direct_url = await checker.check(verified)
         await self.save_verified(pb.song_id, verified, playback_id=pb.id)
+        if direct_url:
+            async with self.db.sessions() as db:
+                current = await db.get(Playback, pb.id)
+                current.audio_url, current.audio_headers = direct_url, {}
+                await db.commit()
         return await self.get_playback(pb.id)
 
-    async def create_playback(self, song_id, request_id):
+    async def fail_direct(self, playback_id, exc):
+        """Native compatibility is not evidence that the original song is unavailable."""
+        async with self.db.sessions() as db:
+            current = await db.get(Playback, playback_id)
+            if current and current.transport == "direct":
+                current.state = "failed"
+                current.error_code, current.error_message = exc.code, exc.message
+                await db.commit()
+        exc.playback_id = playback_id
+
+    async def create_playback(self, song_id, request_id, transport="proxy"):
         async with self.locks.get(f"request:{request_id}"):
             async with self.db.sessions() as db:
                 old = await db.scalar(
                     select(Playback).where(Playback.client_request_id == request_id)
                 )
                 if old:
-                    if old.song_id != song_id:
+                    if old.song_id != song_id or old.transport != transport:
                         raise AppError("request_conflict", "请求 ID 已用于其他歌曲", 409, old.id)
                     old = await self.get_playback(old.id)
                     if old.error_code:
@@ -243,6 +281,7 @@ class MusicService(CatalogService):
                     id=str(uuid4()),
                     song_id=song_id,
                     client_request_id=request_id,
+                    transport=transport,
                     expires_at=now() + timedelta(seconds=self.settings.playback_ttl),
                     play_source=None,
                     audio_kind="full",
@@ -275,6 +314,8 @@ class MusicService(CatalogService):
                             await self.fail(pb.id, exc)
                             raise
             except AppError as exc:
+                if transport == "direct" and not isinstance(exc, FullAudioUnavailable):
+                    await self.fail_direct(pb.id, exc)
                 if exc.code == "service_busy":
                     async with self.db.sessions() as db:
                         current = await db.get(Playback, pb.id)
@@ -287,6 +328,10 @@ class MusicService(CatalogService):
                     exc.playback_id = pb.id
                 raise
             except TimeoutError:
+                if transport == "direct" and resolving:
+                    exc = DirectAudioCheck.unsupported()
+                    await self.fail_direct(pb.id, exc)
+                    raise exc from None
                 if not resolving:
                     exc = busy()
                     exc.playback_id = pb.id
@@ -307,11 +352,15 @@ class MusicService(CatalogService):
                 raise exc from None
             return self.playback_view(pb)
 
-    async def get_playback(self, playback_id):
+    async def get_playback(self, playback_id, transport=None):
         async with self.db.sessions() as db:
             pb = await db.get(Playback, playback_id)
             if not pb:
                 raise AppError("playback_not_found", "播放会话不存在", 404, playback_id)
+            if transport and pb.transport != transport:
+                raise AppError(
+                    "playback_transport_mismatch", "播放会话不属于当前播放通道", 409, playback_id
+                )
             if pb.expires_at <= now():
                 raise AppError(
                     "playback_expired", "播放会话已过期，请重新选择歌曲", 410, playback_id
@@ -338,9 +387,24 @@ class MusicService(CatalogService):
             await self.hide_song(song_id, FullAudioUnavailable(exc.message, retryable=True))
         exc.playback_id, exc.song_id, exc.hidden = playback_id, song_id, True
 
-    async def refresh(self, playback_id, expected_version):
+    async def refresh(self, playback_id, expected_version, transport="proxy"):
+        if transport == "direct":
+            try:
+                async with asyncio.timeout(self.settings.full_audio_verify_timeout):
+                    return await self._refresh(playback_id, expected_version, transport)
+            except TimeoutError:
+                exc = DirectAudioCheck.unsupported()
+                await self.fail_direct(playback_id, exc)
+                raise exc from None
+        return await self._refresh(playback_id, expected_version, transport)
+
+    async def _refresh(self, playback_id, expected_version, transport):
         async with self.locks.get(f"playback:{playback_id}"):
-            pb = await self.get_playback(playback_id)
+            pb = await self.get_playback(playback_id, transport)
+            if pb.state not in ("ready", "streaming", "playing"):
+                raise AppError(
+                    pb.error_code or "not_ready", pb.error_message or "播放会话尚未就绪", 409, pb.id
+                )
             if pb.link_version != expected_version:
                 return self.playback_view(pb)
             if pb.refresh_count >= 1:
@@ -373,12 +437,18 @@ class MusicService(CatalogService):
                             current.state = pb.state
                             await db.commit()
                         exc.playback_id = pb.id
+                    elif transport == "direct":
+                        await self.fail_direct(pb.id, exc)
                     raise
 
-    async def started(self, playback_id):
+    async def started(self, playback_id, transport="proxy"):
         async with self.locks.get(f"playback:{playback_id}"):
-            pb = await self.get_playback(playback_id)
-            if pb.state not in ("streaming", "playing"):
+            pb = await self.get_playback(playback_id, transport)
+            allowed = ("ready", "playing") if transport == "direct" else ("streaming", "playing")
+            if pb.state not in allowed or (
+                transport == "direct"
+                and (not pb.audio_url or pb.audio_kind != "full" or pb.link_version < 1)
+            ):
                 raise AppError("not_streaming", "音频尚未成功传输，不能记录播放", 409, pb.id)
             if not pb.counted:
                 async with self.db.sessions() as db:
@@ -401,7 +471,7 @@ class MusicService(CatalogService):
 
     async def stream_link(self, playback_id):
         async with self.locks.get(f"playback:{playback_id}"):
-            pb = await self.get_playback(playback_id)
+            pb = await self.get_playback(playback_id, "proxy")
             if pb.state in ("failed", "resolving", "refreshing"):
                 raise AppError(
                     pb.error_code or "not_ready", pb.error_message or "播放链接尚未就绪", 409, pb.id

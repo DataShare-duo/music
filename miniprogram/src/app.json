@@ -1,0 +1,11 @@
+{
+  "pages": ["pages/verify/index", "pages/diagnostics/index"],
+  "window": {
+    "navigationBarTitleText": "听见 · 链路验证",
+    "navigationBarBackgroundColor": "#fbf8f3",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#fbf8f3"
+  },
+  "requiredBackgroundModes": ["audio"],
+  "sitemapLocation": "sitemap.json"
+}

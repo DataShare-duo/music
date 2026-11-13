@@ -63,3 +63,19 @@ class PlaybackView(BaseModel):
     play_source_name: str | None = None
     audio_duration: float | None = None
     error: dict | None = None
+
+
+class NativePlaybackView(BaseModel):
+    id: str
+    song_id: int
+    transport: Literal["direct"] = "direct"
+    state: str
+    audio_url: str | None = None
+    audio_kind: Literal["full"] = "full"
+    link_version: int
+    refresh_count: int
+    expires_at: datetime
+    play_source: str | None = None
+    play_source_name: str | None = None
+    audio_duration: float | None = None
+    error: dict | None = None

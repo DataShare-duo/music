@@ -12,7 +12,7 @@ from music.core.errors import AppError
 from music.core.limits import Capacity, Lease
 
 STREAM_PATH = re.compile(r"^/api/playbacks/([^/]+)/stream$")
-ACTION_PATH = re.compile(r"^/api/(songs/[^/]+/playbacks|playbacks/[^/]+/refresh)$")
+ACTION_PATH = re.compile(r"^/api/(?:miniprogram/)?(songs/[^/]+/playbacks|playbacks/[^/]+/refresh)$")
 MAX_BODY = 16384
 
 

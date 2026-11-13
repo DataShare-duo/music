@@ -1,0 +1,34 @@
+{
+  "description": "DataShare 听见原生小程序：第一阶段直连与后台播放验证版",
+  "appid": "wxe1af0ed55ed257b7",
+  "projectname": "听见音乐",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "dist/",
+  "libVersion": "3.7.8",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "minified": true,
+    "postcss": true
+  },
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "node_modules"
+      },
+      {
+        "type": "folder",
+        "value": "src"
+      },
+      {
+        "type": "folder",
+        "value": "tests"
+      },
+      {
+        "type": "folder",
+        "value": "scripts"
+      }
+    ]
+  }
+}

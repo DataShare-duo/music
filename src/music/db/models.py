@@ -91,6 +91,7 @@ class Playback(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     song_id: Mapped[int] = mapped_column(ForeignKey("songs.id", ondelete="CASCADE"), index=True)
     client_request_id: Mapped[str] = mapped_column(String(36), unique=True)
+    transport: Mapped[str] = mapped_column(String(20), default="proxy", server_default="proxy")
     state: Mapped[str] = mapped_column(String(20), default="resolving")
     counted: Mapped[bool] = mapped_column(Boolean, default=False)
     refresh_count: Mapped[int] = mapped_column(Integer, default=0)
