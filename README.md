@@ -8,7 +8,7 @@
 
 ![听见音乐系统首页：音乐推荐、歌曲来源与底部播放器](docs/images/homepage.png)
 
-首次访问时，浏览器会要求输入配置的访问账号和密码，默认账号为 `music`
+打开页面即可搜索和播放，无需注册、登录或输入账号密码
 
 | 页面或区域 | 使用方法                                                                  |
 | ---------- | ------------------------------------------------------------------------- |
@@ -31,10 +31,9 @@ git clone https://github.com/DataShare-duo/music.git
 cd music
 uv sync --locked
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
-uv run python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-将生成的随机密码填入 `.env` 的 `MUSIC_ACCESS_PASSWORD`，密码需要 16～256 个字符，不配置密码时业务接口不可访问
+默认推荐关键词以 `.env.example` 中的 `MUSIC_KEYWORDS` 为准，如果希望后续跟随该文件更新，可删除本地 `.env` 中的同名覆盖项，其他配置保持不变
 
 终端一，在项目根目录启动后端：
 
@@ -50,7 +49,7 @@ npm ci
 npm run dev
 ```
 
-先访问 `http://127.0.0.1:5173/api/sources` 完成浏览器认证，再访问 `http://127.0.0.1:5173`
+浏览器直接访问 `http://127.0.0.1:5173`，无需先访问接口或完成认证
 
 后续启动只需运行对应的启动命令，重新安装前端依赖前先停止正在运行的前端服务，不要将 `.env` 或数据库提交到 Git
 
