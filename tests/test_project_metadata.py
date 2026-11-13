@@ -38,8 +38,9 @@ def test_project_authorship_metadata():
 
 def test_readme_has_requested_structure_and_valid_local_links():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert re.findall(r"^## (.+)$", text, re.MULTILINE) == ["1、用户界面与使用", "2、部署"]
+    assert re.findall(r"^## (.+)$", text, re.MULTILINE) == ["1、用户界面与使用", "2、本地开发部署"]
     assert "作者：DataShare" in text
+    assert all(topic not in text for topic in ("Render", "微信云托管", "SSH 隧道"))
     assert len(text.splitlines()) < 100
     assert "```powershell" in text and text.count("```") % 2 == 0
     for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", text):

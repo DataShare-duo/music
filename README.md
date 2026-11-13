@@ -20,46 +20,25 @@
 
 服务繁忙时会限制搜索或播放连接，稍后重试即可，重复刷新和服务繁忙不会单独导致正常歌曲被隐藏
 
-## 2、部署
+## 2、本地开发部署
 
-### 小服务器测试，推荐先用 SSH 隧道
+需要 **Python 3.13、uv 和 Node.js 22.12+ / 24+**
 
-服务器需要 Git 和 Docker，在项目目录执行：
-
-```bash
-git clone https://github.com/DataShare-duo/music.git
-cd music
-cp .env.example .env
-# 编辑 .env，必须填写至少 16 字符的随机 MUSIC_ACCESS_PASSWORD
-# 可以用 openssl rand -hex 24 生成密码，不要将密码提交到 Git
-chmod 600 .env
-docker build -t music-web .
-docker run -d --name music --restart unless-stopped --env-file .env \
-  -p 127.0.0.1:10000:10000 -v music-data:/app/data music-web
-```
-
-在自己电脑的终端建立隧道，保持窗口运行：
+先获取项目并安装后端依赖：
 
 ```powershell
-ssh -N -L 18000:127.0.0.1:10000 用户名@服务器IP
+git clone https://github.com/DataShare-duo/music.git
+cd music
+uv sync --locked
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+uv run python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-浏览器访问 `http://127.0.0.1:18000`，输入账号和密码，安全组无需开放 10000 端口
-
-- 不配置密码时，除 `/api/health` 外均拒绝访问
-- 默认最多 6 路音频连接、同 IP 最多 3 路、同会话最多 2 路，为拖动进度保留连接余量
-- 公开访问必须配置 HTTPS，账号密码不能通过公网明文 HTTP 传输
-- 完整配置、限流行为、升级和备份说明见 [安全与服务器部署](docs/security.md)
-- 保留 [Render 配置](render.yaml)，如使用 Render，需要在控制台填写访问密码
-
-### 本地开发
-
-需要 **Python 3.13、uv 和 Node.js 22.12+ / 24+**，先复制 `.env.example` 为 `.env` 并设置密码
+将生成的随机密码填入 `.env` 的 `MUSIC_ACCESS_PASSWORD`，密码需要 16～256 个字符，不配置密码时业务接口不可访问
 
 终端一，在项目根目录启动后端：
 
 ```powershell
-uv sync --locked
 uv run uvicorn music.app:app --reload --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
 
@@ -72,6 +51,8 @@ npm run dev
 ```
 
 先访问 `http://127.0.0.1:5173/api/sources` 完成浏览器认证，再访问 `http://127.0.0.1:5173`
+
+后续启动只需运行对应的启动命令，重新安装前端依赖前先停止正在运行的前端服务，不要将 `.env` 或数据库提交到 Git
 
 ---
 
