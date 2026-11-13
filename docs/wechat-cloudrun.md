@@ -71,6 +71,33 @@ Uvicorn running on http://0.0.0.0:80
 
 如果已开通公网访问，使用控制台提供的 HTTPS 地址进行网页测试，不要使用明文公网 HTTP 传输请求和音频；只有云调用入口时，先核对控制台是否已提供浏览器可访问的入口
 
+## 基础镜像拉取失败
+
+构建时如果还没有执行 npm、uv 或启动命令，就在 FROM 拉取阶段失败，先检查镜像仓库网络，不要修改程序端口
+
+- 日志中的 Docker Hub `429 Too Many Requests` 表示拉取受限或请求过于频繁，重试可能恢复，但不保证共享构建出口可用
+- `mirror.ccs.tencentyun.com` 的 `x509: certificate has expired or is not yet valid` 属于镜像加速地址的 TLS 证书校验失败，不应关闭证书校验或修改应用数据库
+- 本次日志显示证书有效期截至 UTC 2026-11-12 23:59:59，即北京时间 2026-11-13 07:59:59，10:33 左右的构建已经超过该时间，应用容器内更新 CA 也无法修复构建器在拉取基础镜像之前的失败
+- 当前 Dockerfile 默认使用 ECR Public 上的 Docker Official Images，镜像系列仍为 Node 22 bookworm-slim 和 Python 3.13 slim-bookworm
+- 已移除会额外从 Docker Hub 拉取 docker/dockerfile:1 的 syntax 指令，使用构建器内置 Dockerfile 前端，本项目没有依赖外部前端的特殊语法
+
+默认基础镜像：
+
+```text
+public.ecr.aws/docker/library/node:22-bookworm-slim
+public.ecr.aws/docker/library/python:3.13-slim-bookworm
+```
+
+选择最新 master 并重新构建，构建日志的基础镜像路径应以 public.ecr.aws/docker/library 开头；旧版本镜像重启不会应用 Dockerfile 修改
+
+ECR Public 可访问性仍取决于云构建网络，不保证微信构建节点一定可达，镜像仓库切换也不解决后续 GitHub、npm 或 Python 依赖下载失败
+
+如果 ECR Public 无法访问，可以在可信环境将已核验镜像同步到自己授权的腾讯容器镜像仓库，然后通过 Docker 构建参数 NODE_IMAGE 和 PYTHON_IMAGE 指定完整地址，保留对应运行时版本
+
+这些是镜像构建参数，不是容器运行环境变量，在控制台填写运行环境变量不会修改 FROM；若控制台不支持传递构建参数，需要在受控构建流程传入或修改 Dockerfile 的默认镜像地址，不在仓库保存仓库密码
+
+若仍使用平台默认镜像加速器并报证书错误，联系云托管支持排查该构建节点的镜像加速器证书，不使用 insecure registry、跳过 TLS 校验或不受控第三方镜像源
+
 ## 非 root 绑定 80
 
 镜像构建时，仅给 Python 解释器设置 `cap_net_bind_service`，应用仍以 UID 10001 运行，不把整个服务改成 root

@@ -99,3 +99,22 @@ def test_wechat_config_and_docker_default_ports_are_consistent(monkeypatch):
     assert settings.stream_concurrency == 3
     assert settings.catalog_target == 100
     assert "access_password" not in Settings.model_fields
+
+
+def test_base_images_bypass_hub_without_disabling_tls_or_changing_versions():
+    docker = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert "ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-bookworm-slim" in docker
+    assert "ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim-bookworm" in docker
+    assert re.findall(r"^FROM (.+)$", docker, re.MULTILINE) == [
+        "${NODE_IMAGE} AS frontend-build",
+        "${PYTHON_IMAGE} AS runtime",
+    ]
+    assert not re.search(r"^#\s*syntax=", docker, re.MULTILINE)
+    assert "mirror.ccs.tencentyun.com" not in docker
+    for insecure in (
+        "--insecure",
+        "--trusted-host",
+        "GIT_SSL_NO_VERIFY",
+        "NODE_TLS_REJECT_UNAUTHORIZED",
+    ):
+        assert insecure not in docker

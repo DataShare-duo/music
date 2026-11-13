@@ -1,13 +1,16 @@
-# syntax=docker/dockerfile:1
+# Use Docker Official Images on ECR Public, bypassing Docker Hub mirror failures
+# Override only with trusted, version-compatible images via Docker build arguments
+ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-bookworm-slim
+ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim-bookworm
 
-FROM node:22-bookworm-slim AS frontend-build
+FROM ${NODE_IMAGE} AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.13-slim-bookworm AS runtime
+FROM ${PYTHON_IMAGE} AS runtime
 LABEL org.opencontainers.image.authors="DataShare"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
