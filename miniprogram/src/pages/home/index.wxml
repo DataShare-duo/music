@@ -4,9 +4,9 @@
 喜欢的频率。</text><text class="hero-description">不必急着出发，先让一首歌陪着你
 从汽水音乐出发，遇见今天的好心情</text><button class="hero-action" bindtap="randomPlay" disabled="{{!items.length}}">▶　随心听一首</button><view class="record-decoration"><view class="record-core">听见</view></view><text class="record-caption">33⅓ RPM · SIDE A</text></view>
   <button class="search-entry" hover-class="search-entry-pressed" bindtap="openSearch" aria-label="搜索歌曲，按歌名或歌手查找">
-    <view class="search-entry-icon"><view class="search-entry-lens"/></view>
-    <view class="search-entry-copy"><text class="search-entry-title">搜索歌曲</text><text class="search-entry-hint">输入歌名、歌手，找到喜欢的旋律</text></view>
-    <view class="search-entry-arrow">↗</view>
+    <view class="search-entry-lens" aria-hidden="true"/>
+    <text class="search-entry-title">搜索歌曲、歌手</text>
+    <text class="search-entry-action">搜索</text>
   </button>
   <view class="section-head"><view><text class="eyebrow">PICK YOUR MOOD</text><text class="section-title">此刻，想听什么 <text class="accent">?</text></text></view><text class="section-note">给日常加一点旋律</text></view>
   <view class="mood-grid"><view wx:for="{{moods}}" wx:key="title" class="mood {{item.tone}}" data-query="{{item.title}}" bindtap="mood"><text class="mood-symbol">{{item.symbol}}</text><text class="mood-title">{{item.title}}</text><text class="mood-label">{{item.label}}</text></view></view>

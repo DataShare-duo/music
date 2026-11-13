@@ -50,15 +50,17 @@ test("build rejects escaped expression operators but permits entities in plain t
   );
 });
 
-test("search entry is a whole-card button, pagination stays a row and empty text is stacked", async () => {
+test("search entry is a compact single-row button, pagination stays a row and empty text is stacked", async () => {
   const read = (file) =>
     fs.readFile(path.resolve(__dirname, "../src/", file), "utf8");
   const home = await read("pages/home/index.wxml");
   const search = await read("pages/search/index.wxml");
   const css = await read("app.wxss");
   assert.match(home, /<button class="search-entry"[^>]*bindtap="openSearch"/);
-  assert.ok(home.includes('class="search-entry-title">搜索歌曲'));
-  assert.ok(home.includes('class="search-entry-hint"'));
+  assert.ok(home.includes('class="search-entry-title">搜索歌曲、歌手'));
+  assert.ok(home.includes('class="search-entry-action">搜索'));
+  assert.ok(!home.includes('class="search-entry-hint"'));
+  assert.ok(!home.includes('class="search-entry-icon"'));
   assert.ok(!home.includes('class="navigation"'));
   assert.ok(
     search.includes('class="page-indicator"') &&
@@ -72,6 +74,11 @@ test("search entry is a whole-card button, pagination stays a row and empty text
     assert.notEqual(index, -1, "missing " + selector);
     return css.slice(index + marker.length, css.indexOf("}", index));
   };
+  assert.match(rule(".search-entry"), /display: flex/);
+  assert.match(rule(".search-entry"), /min-height: 100rpx/);
+  assert.match(rule(".search-entry"), /border-radius: 999rpx/);
+  assert.match(rule(".search-entry-title"), /white-space: nowrap/);
+  assert.match(rule(".search-entry-action"), /flex-shrink: 0/);
   assert.match(rule(".pagination"), /display: flex/);
   assert.match(rule(".pagination"), /flex-direction: row/);
   assert.match(rule(".pagination .page-button"), /min-height: 80rpx/);
@@ -79,4 +86,41 @@ test("search entry is a whole-card button, pagination stays a row and empty text
   assert.match(rule(".music-page .empty"), /flex-direction: column/);
   assert.match(rule(".empty-title"), /display: block/);
   assert.match(rule(".empty .muted"), /display: block/);
+});
+
+test("fullscreen controls use geometric icons with state, accessibility and touch targets preserved", async () => {
+  const root = path.resolve(__dirname, "../src/pages/player/");
+  const markup = await fs.readFile(path.join(root, "index.wxml"), "utf8");
+  const css = await fs.readFile(path.join(root, "index.wxss"), "utf8");
+  const { checkTemplate } = await checker();
+  assert.doesNotThrow(() => checkTemplate(markup, "full-player"));
+  assert.match(markup, /aria-label="收起播放器，返回音乐页面" bindtap="back"/);
+  assert.ok(markup.includes('class="collapse-chevron"'));
+  assert.ok(markup.includes('wx:if="{{loading}}" class="control-spinner"'));
+  assert.ok(markup.includes('wx:elif="{{playing}}" class="control-pause"'));
+  assert.ok(markup.includes('wx:else class="control-play"'));
+  assert.ok(
+    markup.includes(
+      "aria-label=\"{{loading ? '正在加载' : (playing ? '暂停' : '播放')}}\"",
+    ),
+  );
+  assert.ok(markup.includes('class="control-skip control-skip-next"'));
+  const controls = markup.slice(markup.indexOf('<view class="full-buttons">'));
+  assert.equal((controls.match(/class="control-button/g) || []).length, 3);
+  for (const action of ["previous", "toggle", "next"]) {
+    assert.ok(controls.includes('bindtap="' + action + '"'));
+  }
+  assert.ok(
+    controls.includes('disabled="{{!hasSong || (loading && !failed)}}"'),
+  );
+  assert.equal(
+    controls.split('disabled="{{!hasSong || loading}}"').length - 1,
+    2,
+  );
+  assert.ok(!/[⌄◀▶Ⅱ]/u.test(markup));
+  assert.match(css, /width: 80rpx;[\s\S]*height: 80rpx/);
+  assert.match(css, /width: 96rpx;[\s\S]*height: 96rpx/);
+  assert.match(css, /width: 124rpx;[\s\S]*height: 124rpx/);
+  assert.ok(css.includes("background: currentColor"));
+  assert.ok(css.includes("safe-area-inset-bottom"));
 });

@@ -56,13 +56,35 @@ page {
   flex-shrink: 0;
 }
 .collapse {
-  width: 60rpx;
-  height: 78rpx;
-  line-height: 60rpx;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 80rpx;
+  height: 80rpx;
   padding: 0;
-  color: #fff;
-  font-size: 60rpx;
-  background: transparent;
+  margin: 0;
+  border: 1rpx solid #ffffff20;
+  border-radius: 50%;
+  background: #ffffff0a;
+}
+.collapse::after,
+.control-button::after {
+  border: 0;
+}
+.collapse-pressed {
+  background: #ffffff20;
+}
+.collapse-chevron {
+  box-sizing: border-box;
+  width: 21rpx;
+  height: 21rpx;
+  border-right: 3rpx solid #ffffffe6;
+  border-bottom: 3rpx solid #ffffffe6;
+  border-radius: 1rpx;
+  transform: rotate(45deg);
+  margin-top: -9rpx;
 }
 .header-copy text {
   display: block;
@@ -232,26 +254,99 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 64rpx;
-  margin: 18rpx 0;
+  gap: 56rpx;
+  margin: 24rpx 0 22rpx;
 }
-.full-buttons button {
-  width: 78rpx;
-  height: 80rpx;
-  line-height: 80rpx;
-  font-size: 29rpx;
+.full-buttons .control-button {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 96rpx;
+  height: 96rpx;
+  margin: 0;
   padding: 0;
-  color: #fff;
-  background: transparent;
+  border: 1rpx solid #ffffff14;
+  border-radius: 50%;
+  color: #ffffffe6;
+  background: #ffffff08;
+  line-height: 1;
 }
 .full-buttons .full-play {
-  width: 108rpx;
-  height: 108rpx;
-  line-height: 108rpx;
-  font-size: 40rpx;
+  width: 124rpx;
+  height: 124rpx;
+  color: #32392e;
+  border-color: #ffffff80;
+  background: #faf9f6;
+  box-shadow: 0 8rpx 32rpx #00000024;
+}
+.full-buttons .control-pressed {
+  opacity: 0.75;
+  transform: scale(0.95);
+}
+.full-buttons .control-button[disabled] {
+  opacity: 0.35;
+}
+.control-skip {
+  position: relative;
+  width: 40rpx;
+  height: 36rpx;
+}
+.control-skip-next {
+  transform: rotate(180deg);
+}
+.skip-bar {
+  position: absolute;
+  left: 6rpx;
+  top: 4rpx;
+  width: 4rpx;
+  height: 28rpx;
+  border-radius: 2rpx;
+  background: currentColor;
+}
+.skip-triangle {
+  position: absolute;
+  left: 10rpx;
+  top: 4rpx;
+  width: 0;
+  height: 0;
+  border-top: 14rpx solid transparent;
+  border-bottom: 14rpx solid transparent;
+  border-right: 23rpx solid currentColor;
+}
+.control-play {
+  width: 0;
+  height: 0;
+  border-top: 18rpx solid transparent;
+  border-bottom: 18rpx solid transparent;
+  border-left: 29rpx solid currentColor;
+  margin-left: 7rpx;
+}
+.control-pause {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  height: 36rpx;
+}
+.control-pause view {
+  width: 7rpx;
+  height: 34rpx;
+  border-radius: 2rpx;
+  background: currentColor;
+}
+.control-spinner {
+  width: 32rpx;
+  height: 32rpx;
+  border: 3rpx solid #32392e35;
+  border-top-color: #32392e;
   border-radius: 50%;
-  background: #fffc;
-  color: #343b2f;
+  animation: control-spin 0.85s linear infinite;
+}
+@keyframes control-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .full-message {
   display: block;

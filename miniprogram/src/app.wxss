@@ -224,70 +224,59 @@ text {
   display: flex;
   align-items: center;
   width: 100%;
+  min-height: 100rpx;
   box-sizing: border-box;
   text-align: left;
-  margin: 26rpx 0 38rpx;
-  padding: 26rpx 24rpx;
-  border: 2rpx solid #efd8c9;
-  border-radius: 26rpx;
-  background: #fff4ea;
-  box-shadow: 0 8rpx 24rpx rgba(156, 97, 59, 0.06);
+  margin: 24rpx 0 36rpx;
+  padding: 12rpx 14rpx 12rpx 32rpx;
+  border: 1rpx solid #e8e3d9;
+  border-radius: 999rpx;
+  background: #fffdf9;
   line-height: 1.5;
 }
 .search-entry-pressed {
-  background: #f8e8d9;
-}
-.search-entry-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 76rpx;
-  height: 76rpx;
-  border-radius: 24rpx;
-  background: #d66a42;
+  background: #f3efe7;
 }
 .search-entry-lens {
   position: relative;
-  width: 25rpx;
-  height: 25rpx;
-  border: 4rpx solid #fff;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 28rpx;
+  height: 28rpx;
+  border: 3rpx solid #939b85;
   border-radius: 50%;
-  margin: -6rpx 6rpx 0 0;
+  margin: -4rpx 0 0;
 }
 .search-entry-lens::after {
   content: "";
   position: absolute;
-  width: 15rpx;
-  height: 4rpx;
-  right: -12rpx;
-  bottom: -6rpx;
-  border-radius: 4rpx;
-  background: #fff;
+  width: 13rpx;
+  height: 3rpx;
+  right: -10rpx;
+  bottom: -5rpx;
+  border-radius: 3rpx;
+  background: #939b85;
   transform: rotate(45deg);
 }
-.search-entry-copy {
+.search-entry-title {
   flex: 1;
   min-width: 0;
-  margin: 0 20rpx;
+  margin: 0 24rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 26rpx;
+  color: #929486;
 }
-.search-entry-title {
-  display: block;
-  font-size: 31rpx;
-  font-weight: 600;
-  color: #634532;
-}
-.search-entry-hint {
-  display: block;
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  line-height: 1.6;
-  color: #967c65;
-}
-.search-entry-arrow {
+.search-entry-action {
   flex-shrink: 0;
-  font-size: 36rpx;
-  color: #d66a42;
+  padding: 16rpx 32rpx;
+  border-radius: 999rpx;
+  background: #d66a42;
+  color: #fffdf9;
+  font-size: 24rpx;
+  font-weight: 500;
+  line-height: 1.5;
 }
 .music-page .section-head {
   margin-top: 32rpx;
