@@ -1,5 +1,5 @@
 <view class="music-page">
-  <view class="brand-row"><view class="brand-icon">♫</view><view class="brand-copy"><text class="brand-name">听见</text><text class="brand-caption">LISTEN & FEEL</text></view><button class="about-button" bindtap="about">关于听见</button></view>
+  <view class="brand-row"><view class="brand-icon">♫</view><view class="brand-copy"><text class="brand-name">听见</text><text class="brand-caption">LISTEN & FEEL</text></view><button class="mine-entry" bindtap="mine" aria-label="我的个人空间"><image wx:if="{{avatar}}" src="{{avatar}}" mode="aspectFill"/><view wx:else class="avatar-person"/><text>我的</text></button></view>
   <view class="hero"><text class="eyebrow">● EVERYDAY, A NEW SOUND</text><text class="hero-title">把生活，调到
 喜欢的频率。</text><text class="hero-description">不必急着出发，先让一首歌陪着你
 从汽水音乐出发，遇见今天的好心情</text><button class="hero-action" bindtap="randomPlay" disabled="{{!items.length}}">▶　随心听一首</button><view class="record-decoration"><view class="record-core">听见</view></view><text class="record-caption">33⅓ RPM · SIDE A</text></view>

@@ -83,7 +83,7 @@ const deferred = () => {
   return { promise, resolve };
 };
 const flush = () => new Promise((r) => setImmediate(r));
-function setup() {
+function setup(played) {
   const audio = new Audio();
   const calls = [];
   const api = {
@@ -100,7 +100,12 @@ function setup() {
     audio,
     api,
     calls,
-    player: new NativePlayer(api, audio, async () => "secure-request-id"),
+    player: new NativePlayer(
+      api,
+      audio,
+      async () => "secure-request-id",
+      played,
+    ),
   };
 }
 
@@ -290,5 +295,56 @@ test("natural end does not skip an incompatible next song or silently change sou
   assert.equal(player.state.current.id, 2);
   assert.equal(player.state.failed, true);
   assert.equal(player.queue.length, 3);
+  player.destroy();
+});
+
+test("personal history is emitted only for actual current-session play, once across pause, seek, lifecycle and refresh", async () => {
+  const recent = [];
+  const { player, audio, api } = setup((song, session, source) =>
+    recent.push({ song, session, source }),
+  );
+  await player.play(song());
+  assert.equal(recent.length, 0);
+  audio.emit("Canplay");
+  assert.equal(recent.length, 0);
+  audio.emit("Play");
+  audio.emit("Play");
+  await flush();
+  player.lifecycle(false);
+  player.lifecycle(true);
+  player.seek(15);
+  audio.emit("Pause");
+  audio.emit("Play");
+  assert.equal(recent.length, 1);
+  assert.equal(recent[0].session, "one");
+  assert.equal(recent[0].source, "网易云音乐");
+  const old = player.handlers.play;
+  api.post = async (path) => (path.endsWith("/started") ? {} : session("two"));
+  await player.play(song(2));
+  old();
+  assert.equal(recent.length, 1);
+  audio.emit("Play");
+  assert.equal(recent.length, 2);
+  player.destroy();
+});
+test("personal history failure never stops audio or prevents original started statistics", async () => {
+  const { player, audio, calls } = setup(() => {
+    throw new Error("storage full");
+  });
+  await player.play(song());
+  audio.emit("Play");
+  await flush();
+  assert.equal(player.state.playing, true);
+  assert.equal(player.state.failed, false);
+  assert.equal(calls.filter((x) => x[1].endsWith("/started")).length, 1);
+  player.destroy();
+});
+
+test("shared autoplay passes the deferred-click flag without changing manual playback", async () => {
+  const { player, api, calls } = setup();
+  await player.play(song(), [song()], true);
+  assert.equal(calls[0][2].defer_click, true);
+  await player.play(song(2), [song(2)]);
+  assert.equal(calls[1][2].defer_click, undefined);
   player.destroy();
 });

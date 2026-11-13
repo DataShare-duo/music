@@ -17,7 +17,7 @@ async def test_alembic_upgrade_is_repeatable(tmp_path):
         assert set(Base.metadata.tables).issubset(tables)
         assert (
             await connection.execute(text("select version_num from alembic_version"))
-        ).scalar_one() == "0003"
+        ).scalar_one() == "0004"
     await db.engine.dispose()
 
 
@@ -67,6 +67,7 @@ async def test_upgrade_preserves_legacy_song_statistics_and_blocks_old_preview(t
             assert song.verified_track is None and song.audio_duration is None
             assert old.state == "failed" and old.error_code == "full_audio_required"
             assert old.transport == "proxy"
+            assert old.click_pending is False
             assert (await session.get(AudioLink, 1)).url == "https://audio.example/preview"
     finally:
         await db.engine.dispose()

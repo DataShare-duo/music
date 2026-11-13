@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "我的音乐",
+  "usingComponents": {
+    "cover-art": "/components/cover-art/index",
+    "player-bar": "/components/player-bar/index"
+  }
+}

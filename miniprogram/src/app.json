@@ -5,7 +5,10 @@
     "pages/player/index",
     "pages/diagnostics/index",
     "pages/verify/index",
-    "page/index/index"
+    "page/index/index",
+    "pages/mine/index",
+    "pages/library/index",
+    "pages/song/index"
   ],
   "window": {
     "navigationBarTitleText": "听见 · 音乐空间",

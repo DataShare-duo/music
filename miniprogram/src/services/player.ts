@@ -69,6 +69,7 @@ export class NativePlayer {
   private recovering = false;
   private counting = new Set<string>();
   private counted = new Set<string>();
+  private historySession = "";
   private countRetry = 0;
   private queue: Song[] = [];
   availabilityRevision = 0;
@@ -77,6 +78,11 @@ export class NativePlayer {
     private api: Api,
     private audio: NativeAudio,
     private id: () => Promise<string>,
+    private played?: (
+      song: Song,
+      sessionId: string,
+      sourceName: string,
+    ) => void,
   ) {
     // BackgroundAudioManager has on* but no off* API: register exactly once,
     // dispatch only to the current generation, never add listeners per song
@@ -147,6 +153,14 @@ export class NativePlayer {
       this.state.loading = false;
       this.state.message = "";
       this.event("收到实际 onPlay");
+      try {
+        if (this.state.current && this.historySession !== session.id) {
+          this.historySession = session.id;
+          this.played?.(this.state.current, session.id, this.state.sourceName);
+        }
+      } catch {
+        /* Personal history never interrupts audio */
+      }
       void this.count();
     });
     const pause = guard(() => {
@@ -249,7 +263,7 @@ export class NativePlayer {
     this.audio.src = pb.audio_url; // Setting src starts native background playback
     this.event("已设置直连音源，等待实际 onPlay");
   }
-  async play(song: Song, songs?: Song[]): Promise<void> {
+  async play(song: Song, songs?: Song[], deferClick = false): Promise<void> {
     const token = ++this.generation;
     this.unbind();
     this.audio.stop();
@@ -280,12 +294,14 @@ export class NativePlayer {
       try {
         pb = await this.api.post<Playback>(path, {
           client_request_id: requestId,
+          ...(deferClick ? { defer_click: true } : {}),
         });
       } catch (e) {
         if (token !== this.generation) return;
         if (!(e instanceof ApiError) || e.code !== "cloud_call_failed") throw e;
         pb = await this.api.post<Playback>(path, {
           client_request_id: requestId,
+          ...(deferClick ? { defer_click: true } : {}),
         });
       }
       if (token !== this.generation) return;

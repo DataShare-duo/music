@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "分享的歌曲",
+  "usingComponents": {
+    "cover-art": "/components/cover-art/index",
+    "player-bar": "/components/player-bar/index"
+  }
+}

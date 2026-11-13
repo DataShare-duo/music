@@ -94,6 +94,7 @@ class Playback(Base):
     transport: Mapped[str] = mapped_column(String(20), default="proxy", server_default="proxy")
     state: Mapped[str] = mapped_column(String(20), default="resolving")
     counted: Mapped[bool] = mapped_column(Boolean, default=False)
+    click_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     refresh_count: Mapped[int] = mapped_column(Integer, default=0)
     link_version: Mapped[int] = mapped_column(Integer, default=0)
     audio_kind: Mapped[str] = mapped_column(String(20), default="unknown")

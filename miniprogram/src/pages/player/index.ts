@@ -1,3 +1,5 @@
+import { shareCard, shareQuery, readShared } from "../../services/songs";
+import { routes } from "../../routes";
 import { MusicApp } from "../../app";
 import { api } from "../../services/api";
 import { LyricController, LyricState } from "../../services/lyrics";
@@ -8,6 +10,10 @@ import { openHome } from "../../routes";
 Page({
   data: {
     title: "听见",
+    favorite: false,
+    liked: false,
+    markLoading: false,
+    personalError: "",
     artist: "",
     sourceName: "",
     coverUrl: "",
@@ -37,10 +43,17 @@ Page({
   lyrics: null as LyricController | null,
   unsubscribe: null as (() => void) | null,
   visible: false,
+  personalUnsubscribe: null as (() => void) | null,
   lastLines: null as LyricLine[] | null,
   scrollRevision: -1,
   scrollGeneration: 0,
-  onLoad() {
+  onLoad(options: Record<string, string | undefined> = {}) {
+    const shared = readShared(options);
+    if (shared) {
+      wx.redirectTo({ url: "/" + routes.song + "?" + shareQuery(shared) });
+      return;
+    }
+    wx.showShareMenu?.({ menus: ["shareAppMessage", "shareTimeline"] });
     try {
       const info = wx.getWindowInfo
         ? wx.getWindowInfo()
@@ -57,6 +70,18 @@ Page({
   },
   onShow() {
     this.visible = true;
+    this.personalUnsubscribe?.();
+    const personal = getApp<MusicApp>().personal;
+    this.personalUnsubscribe =
+      personal?.subscribe((state) => {
+        const current = getApp<MusicApp>().player?.state.current;
+        this.setData({
+          favorite: current ? personal.has("favorite", current) : false,
+          liked: current ? personal.has("like", current) : false,
+          personalError: state.error,
+        });
+      }) || null;
+    void personal?.sync();
     const player = getApp<MusicApp>().player;
     if (!player) {
       this.setData({
@@ -74,6 +99,8 @@ Page({
   },
   onHide() {
     this.visible = false;
+    this.personalUnsubscribe?.();
+    this.personalUnsubscribe = null;
     ++this.scrollGeneration;
     this.unsubscribe?.();
     this.unsubscribe = null;
@@ -87,6 +114,13 @@ Page({
     this.lyrics?.pause();
   },
   renderPlayer(state: PlayerState) {
+    const personal = getApp<MusicApp>().personal;
+    this.setData({
+      favorite: state.current
+        ? !!personal?.has("favorite", state.current)
+        : false,
+      liked: state.current ? !!personal?.has("like", state.current) : false,
+    });
     const cover = state.current?.cover_url || "";
     const coverUrl = cover.startsWith("https://") ? cover : "";
     this.setData({
@@ -208,5 +242,36 @@ Page({
   },
   followLyrics() {
     this.lyrics?.follow();
+  },
+  async toggleMark(event: WechatMiniprogram.TouchEvent) {
+    const kind = event.currentTarget.dataset.kind as "favorite" | "like";
+    if (!["favorite", "like"].includes(kind) || this.data.markLoading) return;
+    const app = getApp<MusicApp>(),
+      song = app.player?.state.current,
+      personal = app.personal;
+    if (!song || !personal) return;
+    this.setData({ markLoading: true });
+    try {
+      await personal.mark(kind, song, !personal.has(kind, song));
+    } catch (e) {
+      this.setData({
+        personalError: e instanceof Error ? e.message : "保存失败",
+      });
+    } finally {
+      this.setData({ markLoading: false });
+    }
+  },
+  onShareAppMessage() {
+    return shareCard(getApp<MusicApp>().player?.state.current || null);
+  },
+  onShareTimeline() {
+    const song = getApp<MusicApp>().player?.state.current;
+    return {
+      title: song ? song.title + " · " + song.artist : "听见音乐",
+      query: song ? shareQuery(song) : "",
+      ...(song?.cover_url?.startsWith("https://")
+        ? { imageUrl: song.cover_url }
+        : {}),
+    };
   },
 });

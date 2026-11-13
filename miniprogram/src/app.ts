@@ -1,14 +1,18 @@
+import { PersonalStore } from "./services/personal";
 import { config } from "./config";
 import { openHome } from "./routes";
 import { api, newRequestId } from "./services/api";
 import { NativePlayer } from "./services/player";
 
 export interface MusicApp {
+  personal: PersonalStore | null;
   player: NativePlayer | null;
   startupError: string;
 }
 
 App({
+  personal: null as PersonalStore | null,
+  personalTimer: null as ReturnType<typeof setInterval> | null,
   player: null as NativePlayer | null,
   startupError: "",
   onLaunch() {
@@ -18,10 +22,13 @@ App({
     }
     try {
       wx.cloud.init({ env: config.env, traceUser: false });
+      this.personal = new PersonalStore();
       this.player = new NativePlayer(
         api,
         wx.getBackgroundAudioManager(),
         newRequestId,
+        (song, session, source) =>
+          this.personal?.recordPlayed(song, session, source),
       );
     } catch {
       this.startupError =
@@ -32,9 +39,16 @@ App({
     openHome();
   },
   onShow() {
+    void this.personal?.sync();
+    if (this.personalTimer) clearInterval(this.personalTimer);
+    this.personalTimer = setInterval(() => {
+      void this.personal?.sync();
+    }, 60000);
     this.player?.lifecycle(true);
   },
   onHide() {
+    if (this.personalTimer) clearInterval(this.personalTimer);
+    this.personalTimer = null;
     this.player?.lifecycle(false);
   },
 });

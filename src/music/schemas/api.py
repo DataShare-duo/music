@@ -80,3 +80,20 @@ class NativePlaybackView(BaseModel):
     play_source_track_id: str | None = None
     audio_duration: float | None = None
     error: dict | None = None
+
+
+class RestoreSong(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source: Literal["soda", "netease", "kuwo"]
+    source_track_id: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
+    query_hint: str = Field(min_length=1, max_length=100)
+
+
+class RestoreView(BaseModel):
+    status: Literal["available", "pending", "unavailable"]
+    song: SongView | None = None
+    message: str = ""
+
+
+class CreateNativePlayback(CreatePlayback):
+    defer_click: bool = False

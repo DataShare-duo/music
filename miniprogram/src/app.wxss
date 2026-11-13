@@ -831,3 +831,182 @@ text {
   font-weight: 600;
   text-align: center;
 }
+
+/* Personal space, using the same warm palette without changing player layout. */
+.mine-entry {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 6rpx 16rpx;
+  border: 1rpx solid #e4dfd3;
+  border-radius: 40rpx;
+  color: #7e8970;
+  font-size: 23rpx;
+}
+.mine-entry image {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+}
+.avatar-person {
+  position: relative;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: #e9ecdf;
+  overflow: hidden;
+}
+.avatar-person::before {
+  content: "";
+  position: absolute;
+  width: 14rpx;
+  height: 14rpx;
+  top: 8rpx;
+  left: 15rpx;
+  background: #919d7f;
+  border-radius: 50%;
+}
+.avatar-person::after {
+  content: "";
+  position: absolute;
+  width: 28rpx;
+  height: 22rpx;
+  top: 25rpx;
+  left: 8rpx;
+  background: #919d7f;
+  border-radius: 50%;
+}
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 26rpx;
+  padding: 36rpx 0;
+}
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #edf0e5;
+  flex-shrink: 0;
+}
+.profile-avatar image {
+  width: 100%;
+  height: 100%;
+}
+.profile-avatar .avatar-person {
+  transform: scale(2);
+}
+.profile-name {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #414b36;
+}
+.personal-menu {
+  margin: 32rpx 0;
+  border: 1rpx solid #e8e3d9;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: #fffdf9;
+}
+.personal-menu button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 26rpx;
+  min-height: 100rpx;
+  box-sizing: border-box;
+  border-radius: 0;
+  border-bottom: 1rpx solid #eee9df;
+  font-size: 27rpx;
+  color: #4e5944;
+  text-align: left;
+  line-height: 1.5;
+}
+.personal-menu button:last-child {
+  border-bottom: 0;
+}
+.menu-count {
+  color: #939b86;
+  font-size: 24rpx;
+}
+.history-section {
+  padding: 28rpx 0 8rpx;
+}
+.history-title {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #687359;
+}
+.history-clear {
+  font-size: 22rpx;
+  line-height: 2.2;
+  padding: 8rpx 12rpx;
+  color: #9b8e7b;
+  white-space: nowrap;
+}
+.history-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+.history-chip {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 28rpx;
+  background: #efeee5;
+  overflow: hidden;
+  color: #7e876c;
+  font-size: 24rpx;
+}
+.history-chip text {
+  padding: 12rpx 8rpx 12rpx 22rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-chip button {
+  font-size: 26rpx;
+  line-height: 1.5;
+  padding: 10rpx 18rpx;
+  color: #b0ac9c;
+  flex-shrink: 0;
+}
+.shared-art {
+  width: 360rpx;
+  height: 360rpx;
+  margin: 60rpx auto 32rpx;
+  border-radius: 30rpx;
+  overflow: hidden;
+}
+.shared-title {
+  display: block;
+  text-align: center;
+  font-size: 38rpx;
+  color: #414b36;
+  font-weight: 600;
+}
+.shared-artist {
+  display: block;
+  text-align: center;
+  font-size: 27rpx;
+  color: #939b86;
+  margin: 16rpx 0 40rpx;
+}
+.shared-message {
+  display: block;
+  font-size: 24rpx;
+  color: #a38164;
+  line-height: 1.8;
+  margin: 24rpx 0;
+  text-align: center;
+}
+.shared-home {
+  margin-top: 24rpx;
+}

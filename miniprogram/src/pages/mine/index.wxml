@@ -1,0 +1,10 @@
+
+<view class="music-page mine-page">
+ <text class="eyebrow">YOUR MUSIC SPACE</text><text class="section-title">我的音乐空间</text>
+ <view class="profile-card"><button class="profile-avatar" open-type="chooseAvatar" bindchooseavatar="chooseAvatar" disabled="{{!active || busy}}" aria-label="选择个人头像"><image wx:if="{{avatar}}" src="{{avatar}}" mode="aspectFill"/><view wx:else class="avatar-person"/></button><view><text class="profile-name">{{active ? '微信用户' : '开启你的音乐空间'}}</text><text class="hint">{{active ? '点击头像可更换，不需要手机号' : '收藏心动，留下听过的旋律'}}</text></view></view>
+ <button wx:if="{{!active}}" class="primary" bindtap="enable" disabled="{{busy}}">{{busy ? '正在开启…' : '启用个人空间'}}</button>
+ <view class="personal-menu"><button data-kind="favorite" bindtap="openList"><text>我的收藏</text><text class="menu-count">{{favoriteCount}}　›</text></button><button data-kind="like" bindtap="openList"><text>我喜欢的</text><text class="menu-count">{{likeCount}}　›</text></button><button data-kind="recent" bindtap="openList"><text>最近播放</text><text class="menu-count">{{recentCount}}　›</text></button></view>
+ <view wx:if="{{error}}" class="error-box"><text>{{error}}</text><button class="retry" bindtap="retry">重试同步</button></view>
+ <text class="hint">未启用时，搜索和播放历史仅保存在本机，启用后与云端合并，清理过的云端历史优先</text>
+ <view class="personal-menu"><button bindtap="about">关于听见 <text>›</text></button><button bindtap="diagnostics">服务检查与播放事件 <text>›</text></button></view>
+</view><player-bar/>

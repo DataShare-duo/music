@@ -73,3 +73,19 @@ def test_fullscreen_lyric_page_reuses_background_player_and_uses_native_text():
     style = (root / "src/pages/player/index.wxss").read_text(encoding="utf-8")
     assert "blur(" in style and "safe-area-inset-bottom" in style
     assert "resume(" in source and "pause()" in source
+
+
+def test_personal_functions_rules_and_private_source_are_not_packaged_as_music_service():
+    root = ROOT / "miniprogram"
+    project = json.loads((root / "project.config.json").read_text(encoding="utf-8"))
+    assert project["cloudfunctionRoot"] == "cloudfunctions/"
+    assert any(x["value"] == "cloudfunctions" for x in project["packOptions"]["ignore"])
+    rules = json.loads((root / "cloudfunctions/database.rules.json").read_text(encoding="utf-8"))
+    assert rules == {"read": False, "write": False}
+    storage = json.loads((root / "cloudfunctions/storage.rules.json").read_text(encoding="utf-8"))
+    assert "resource.openid == auth.openid" in storage["read"]
+    core = (root / "cloudfunctions/personal/core.js").read_text(encoding="utf-8")
+    assert "wx_client" in core and "context.APPID" in core and "context.OPENID" in core
+    assert (root / "cloudfunctions/personal/package-lock.json").is_file()
+    for name in ("mine", "library", "song"):
+        assert (root / f"src/pages/{name}/index.wxml").is_file()

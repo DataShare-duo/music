@@ -2,6 +2,7 @@ import { MusicApp } from "../app";
 import { api } from "../services/api";
 import { Catalog, CatalogState } from "../services/catalog";
 import { Song, Source, sourceNames, time } from "../types";
+import { PersonalData } from "../services/personal";
 import { routes } from "../routes";
 
 export function presentSongs(songs: Song[]) {
@@ -45,6 +46,9 @@ export function registerMusicPage(mode: "home" | "search"): void {
       currentId: 0,
       playing: false,
       aboutOpen: false,
+      searchHistory: [] as { key: string; query?: string }[],
+      personalError: "",
+      avatar: "",
       moods: [
         { title: "华语流行", label: "熟悉的心动", symbol: "♫", tone: "green" },
         { title: "抖音热歌", label: "正在循环", symbol: "✦", tone: "orange" },
@@ -58,6 +62,7 @@ export function registerMusicPage(mode: "home" | "search"): void {
     unsubscribe: null as (() => void) | null,
     startupError: "",
     availabilityRevision: -1,
+    personalUnsubscribe: null as (() => void) | null,
     onLoad(options: Record<string, string>) {
       const app = getApp<MusicApp>();
       this.startupError = app.startupError;
@@ -76,11 +81,24 @@ export function registerMusicPage(mode: "home" | "search"): void {
         (state) => this.renderResult(state),
         () => app.player?.availabilityRevision || 0,
       );
-      if (mode === "search") this.catalog.change("search", query, source);
+      if (mode === "search") {
+        this.catalog.change("search", query, source);
+        if (query) app.personal?.recordSearch(query);
+      }
     },
     onShow() {
       this.unsubscribe?.();
+      this.personalUnsubscribe?.();
       const app = getApp<MusicApp>();
+      this.personalUnsubscribe =
+        app.personal?.subscribe((state: PersonalData) =>
+          this.setData({
+            searchHistory: state.search.items,
+            personalError: state.error,
+            avatar: state.avatar,
+          }),
+        ) || null;
+      void app.personal?.sync();
       this.unsubscribe =
         app.player?.subscribe((state) => {
           const currentId = state.current?.id || 0;
@@ -101,11 +119,15 @@ export function registerMusicPage(mode: "home" | "search"): void {
     },
     onHide() {
       this.catalog?.pause();
+      this.personalUnsubscribe?.();
+      this.personalUnsubscribe = null;
       this.unsubscribe?.();
       this.unsubscribe = null;
     },
     onUnload() {
       this.catalog?.pause();
+      this.personalUnsubscribe?.();
+      this.personalUnsubscribe = null;
       this.unsubscribe?.();
       this.unsubscribe = null;
     },
@@ -144,6 +166,7 @@ export function registerMusicPage(mode: "home" | "search"): void {
         this.openSearch(query);
         return;
       }
+      getApp<MusicApp>().personal?.recordSearch(query);
       this.setData({ query, searched: query, page: 1, error: "" });
       this.catalog?.change("search", query, this.data.source, 1);
       // A search page starts inactive until the first submitted keyword
@@ -223,6 +246,22 @@ export function registerMusicPage(mode: "home" | "search"): void {
           items[Math.floor(Math.random() * items.length)],
           items,
         );
+    },
+    mine() {
+      wx.navigateTo({ url: "/" + routes.mine });
+    },
+    historySearch(event: WechatMiniprogram.TouchEvent) {
+      this.setData({ query: String(event.currentTarget.dataset.query || "") });
+      this.search();
+    },
+    removeSearch(event: WechatMiniprogram.TouchEvent) {
+      void getApp<MusicApp>().personal?.remove(
+        "search",
+        String(event.currentTarget.dataset.key),
+      );
+    },
+    clearSearchHistory() {
+      void getApp<MusicApp>().personal?.clear("search");
     },
     about() {
       this.setData({ aboutOpen: true });

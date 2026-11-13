@@ -26,3 +26,5 @@ miniprogram/project.private.config.json
 miniprogram/*.tsbuildinfo
 *.key
 *.pem
+
+miniprogram/cloudfunctions/**/node_modules/

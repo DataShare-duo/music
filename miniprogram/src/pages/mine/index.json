@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "听见 · 我的",
+  "usingComponents": {
+    "cover-art": "/components/cover-art/index",
+    "player-bar": "/components/player-bar/index"
+  }
+}

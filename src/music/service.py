@@ -249,7 +249,7 @@ class MusicService(CatalogService):
                 await db.commit()
         exc.playback_id = playback_id
 
-    async def create_playback(self, song_id, request_id, transport="proxy"):
+    async def create_playback(self, song_id, request_id, transport="proxy", defer_click=False):
         async with self.locks.get(f"request:{request_id}"):
             async with self.db.sessions() as db:
                 old = await db.scalar(
@@ -283,20 +283,22 @@ class MusicService(CatalogService):
                     song_id=song_id,
                     client_request_id=request_id,
                     transport=transport,
+                    click_pending=defer_click,
                     expires_at=now() + timedelta(seconds=self.settings.playback_ttl),
                     play_source=None,
                     audio_kind="full",
                 )
                 db.add(pb)
-                await db.execute(
-                    update(SongStats)
-                    .where(SongStats.song_id == song_id)
-                    .values(
-                        click_count=SongStats.click_count + 1,
-                        first_clicked_at=func.coalesce(SongStats.first_clicked_at, now()),
-                        last_clicked_at=now(),
+                if not defer_click:
+                    await db.execute(
+                        update(SongStats)
+                        .where(SongStats.song_id == song_id)
+                        .values(
+                            click_count=SongStats.click_count + 1,
+                            first_clicked_at=func.coalesce(SongStats.first_clicked_at, now()),
+                            last_clicked_at=now(),
+                        )
                     )
-                )
                 await db.commit()
             resolving = False
             try:
@@ -456,16 +458,21 @@ class MusicService(CatalogService):
                     await db.execute(
                         update(Playback)
                         .where(Playback.id == pb.id)
-                        .values(counted=True, state="playing")
+                        .values(counted=True, state="playing", click_pending=False)
                     )
-                    await db.execute(
-                        update(SongStats)
-                        .where(SongStats.song_id == pb.song_id)
-                        .values(
-                            listen_count=SongStats.listen_count + 1,
-                            first_listened_at=func.coalesce(SongStats.first_listened_at, now()),
-                            last_listened_at=now(),
+                    values = dict(
+                        listen_count=SongStats.listen_count + 1,
+                        first_listened_at=func.coalesce(SongStats.first_listened_at, now()),
+                        last_listened_at=now(),
+                    )
+                    if pb.click_pending:
+                        values.update(
+                            click_count=SongStats.click_count + 1,
+                            first_clicked_at=func.coalesce(SongStats.first_clicked_at, now()),
+                            last_clicked_at=now(),
                         )
+                    await db.execute(
+                        update(SongStats).where(SongStats.song_id == pb.song_id).values(**values)
                     )
                     await db.commit()
             return {"ok": True}

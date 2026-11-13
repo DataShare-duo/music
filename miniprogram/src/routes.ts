@@ -1,6 +1,9 @@
 // Stable native routes; the singular path is retained for existing experience QR codes
 export const routes = Object.freeze({
   home: "pages/home/index",
+  mine: "pages/mine/index",
+  library: "pages/library/index",
+  song: "pages/song/index",
   search: "pages/search/index",
   diagnostics: "pages/diagnostics/index",
   player: "pages/player/index",

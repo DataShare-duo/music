@@ -366,3 +366,42 @@ page {
   margin-top: 18rpx;
   min-height: 36rpx;
 }
+
+.personal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 60rpx;
+  padding: 4rpx 0 12rpx;
+}
+.personal-action {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-height: 64rpx;
+  margin: 0;
+  padding: 8rpx 12rpx;
+  font-size: 21rpx;
+  line-height: 1.5;
+  color: #ffffff90;
+}
+.action-symbol {
+  font-size: 36rpx;
+  line-height: 1;
+}
+.share-symbol {
+  font-size: 33rpx;
+  line-height: 1;
+}
+.action-selected {
+  color: #efb495;
+}
+.personal-error {
+  display: block;
+  text-align: center;
+  color: #ffdfc5;
+  font-size: 20rpx;
+  line-height: 1.6;
+  max-height: 64rpx;
+  overflow: hidden;
+}
