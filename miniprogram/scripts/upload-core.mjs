@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createPrivateKey } from "node:crypto";
+import { isIP } from "node:net";
 
 export const APP_ID = "wxe1af0ed55ed257b7";
 export class UploadError extends Error {
@@ -125,8 +126,21 @@ export async function validateUpload({
 export function safeFailure(error) {
   if (error instanceof UploadError) return error.code + ": " + error.message;
   const message = typeof error?.message === "string" ? error.message : "";
-  if (/\b(?:invalid ip|ip not allowed)\b|white.?list|白名单/i.test(message))
-    return "upload_ip_denied: 请将当前本机公网出口 IP 加入小程序代码上传白名单后重试";
+  if (/\b(?:invalid ip|ip not allowed)\b|white.?list|白名单/i.test(message)) {
+    // Only report an IP explicitly present in the WeChat error; never query a
+    // third-party IP echo service or output the rest of the platform response
+    const candidate = message.match(
+      /(?:\bip\b|出口\s*IP|IP地址)\s*[:=]?\s*["']?([0-9.]{7,15})/i,
+    )?.[1];
+    const hint =
+      candidate && isIP(candidate) === 4
+        ? "（微信返回的出口 IP：" + candidate + "）"
+        : "";
+    return (
+      "upload_ip_denied: 请将当前本机公网出口 IP 加入小程序代码上传白名单后重试" +
+      hint
+    );
+  }
   if (/timeout|network|ENOTFOUND|ECONN|ETIMEDOUT/i.test(message))
     return "upload_network_failed: 微信上传网络连接失败，请检查网络后手动重试";
   if (/\b(?:private key|invalid key|signature)\b|签名/i.test(message))

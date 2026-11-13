@@ -132,6 +132,15 @@ test("errors are classified without exposing keys, raw error messages or identif
     /upload_ip_denied/,
   );
   assert.match(
+    safeFailure(new Error("invalid ip: 203.0.113.8 not in whitelist")),
+    /203\.0\.113\.8/,
+  );
+  assert.ok(
+    !safeFailure(new Error("invalid ip: 999.0.0.1 not in whitelist")).includes(
+      "999.0.0.1",
+    ),
+  );
+  assert.match(
     safeFailure(new Error("ETIMEDOUT sensitive")),
     /upload_network_failed/,
   );
