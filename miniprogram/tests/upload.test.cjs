@@ -141,6 +141,14 @@ test("errors are classified without exposing keys, raw error messages or identif
     ),
   );
   assert.match(
+    safeFailure(new Error("miniprogram-ci script unexpected failure")),
+    /upload_failed/,
+  );
+  assert.match(
+    safeFailure(new Error("wxml compile failed")),
+    /upload_compile_failed/,
+  );
+  assert.match(
     safeFailure(new UploadError("key_missing", "请设置路径")),
     /key_missing/,
   );

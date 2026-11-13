@@ -64,5 +64,6 @@ try {
   console.log(JSON.stringify(result));
 } catch (error) {
   console.error(safeFailure(error));
-  process.exitCode = 1;
+  // SDK worker pools may survive a rejected upload; terminate this helper only
+  process.stderr.write("", () => process.exit(1));
 }

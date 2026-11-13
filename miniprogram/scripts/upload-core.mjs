@@ -125,13 +125,20 @@ export async function validateUpload({
 export function safeFailure(error) {
   if (error instanceof UploadError) return error.code + ": " + error.message;
   const message = typeof error?.message === "string" ? error.message : "";
-  if (/ip|whitelist|白名单/i.test(message))
+  if (/\b(?:invalid ip|ip not allowed)\b|white.?list|白名单/i.test(message))
     return "upload_ip_denied: 请将当前本机公网出口 IP 加入小程序代码上传白名单后重试";
   if (/timeout|network|ENOTFOUND|ECONN|ETIMEDOUT/i.test(message))
     return "upload_network_failed: 微信上传网络连接失败，请检查网络后手动重试";
-  if (/key|signature|签名/i.test(message))
+  if (/\b(?:private key|invalid key|signature)\b|签名/i.test(message))
     return "upload_key_rejected: 上传密钥或签名被拒绝，请核对 AppID 和上传密钥";
-  const code = String(error?.errCode ?? error?.code ?? "unknown")
+  if (/wxml|wxss|compile|编译|syntax/i.test(message))
+    return "upload_compile_failed: 微信官方编译器未通过，请检查原生 WXML、WXSS 和构建产物";
+  const parsedCode = message.match(
+    /(?:errcode|errCode|code)[\s\"':=]+(-?\d{1,8})/,
+  );
+  const code = String(
+    error?.errCode ?? error?.code ?? parsedCode?.[1] ?? "unknown",
+  )
     .replace(/[^a-zA-Z0-9_-]/g, "")
     .slice(0, 40);
   return (
