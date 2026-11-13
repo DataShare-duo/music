@@ -165,6 +165,82 @@ class OfficialProvider:
             if t.get("MUSICRID") or t.get("musicrid")
         ]
 
+    def _lyric_request(self, session, method, url, **kwargs):
+        # Only fixed official endpoints, no arbitrary URL or unchecked redirects
+        if urlsplit(url).scheme != "https" or urlsplit(url).hostname not in {
+            "music.douyin.com",
+            "interface3.music.163.com",
+            "m.kuwo.cn",
+        }:
+            raise AppError("invalid_lyric_url", "歌词请求地址无效")
+        with session.request(
+            method, url, timeout=self.timeout, stream=True, allow_redirects=False, **kwargs
+        ) as response:
+            response.raise_for_status()
+            if response.is_redirect:
+                raise AppError("lyrics_redirect", "歌词接口发生跳转，暂不可用")
+            chunks, size = [], 0
+            for chunk in response.iter_content(8192):
+                size += len(chunk)
+                if size > 2 * 1024 * 1024:
+                    raise AppError("lyrics_too_large", "歌词接口响应过大")
+                chunks.append(chunk)
+            response._content = b"".join(chunks)
+            response._content_consumed = True
+            if not response.encoding:
+                response.encoding = "utf-8"
+            return response
+
+    def fetch_lyrics(self, track_id: str):
+        from music.core.lyrics import LyricPayload
+
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", track_id):
+            raise AppError("invalid_track_id", "平台歌曲 ID 无效", 400)
+        with self._session() as session:
+            if self.source == "soda":
+                context = SimpleNamespace(
+                    get=lambda url, **kwargs: self._lyric_request(session, "GET", url, **kwargs)
+                )
+                data = self._client_class()._getsongmetainfo(context, track_id)
+                return LyricPayload(text=str(data.get("lyric") or ""))
+            if self.source == "netease":
+                response = self._lyric_request(
+                    session,
+                    "POST",
+                    "https://interface3.music.163.com/api/song/lyric",
+                    data={
+                        "id": track_id,
+                        "cp": "false",
+                        "tv": "0",
+                        "lv": "0",
+                        "rv": "0",
+                        "kv": "0",
+                        "yv": "0",
+                        "ytv": "0",
+                        "yrv": "0",
+                    },
+                )
+                data = response.json()
+                if data.get("code") != 200:
+                    raise AppError("lyrics_unavailable", "歌词接口当前不可用")
+                return LyricPayload(
+                    text=str((data.get("lrc") or {}).get("lyric") or ""),
+                    instrumental=data.get("nolyric") is True,
+                )
+            response = self._lyric_request(
+                session,
+                "GET",
+                "https://m.kuwo.cn/newh5/singles/songinfoandlrc",
+                params={"musicId": track_id},
+            )
+            data = response.json().get("data")
+            if not isinstance(data, dict):
+                raise AppError("lyrics_unavailable", "歌词接口当前不可用")
+            rows = data.get("lrclist") or []
+            if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+                raise AppError("lyrics_unavailable", "歌词格式无效")
+            return LyricPayload(rows=rows)
+
     def resolve_audio(self, track_id: str) -> ResolvedAudio:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", track_id):
             raise AppError("invalid_track_id", "平台歌曲 ID 无效", 400)
@@ -248,6 +324,9 @@ class ProviderManager:
 
     async def search(self, source: str, query: str, page: int, page_size: int):
         return await self._call(source, "search_metadata", query, page, page_size)
+
+    async def lyrics(self, source: str, track_id: str):
+        return await self._call(source, "fetch_lyrics", track_id)
 
     async def resolve(self, source: str, track_id: str):
         return await self._call(source, "resolve_audio", track_id)

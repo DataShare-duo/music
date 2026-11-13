@@ -1,5 +1,6 @@
 import { MusicApp } from "../../app";
 import { time } from "../../types";
+import { openPlayer } from "../../routes";
 const subscriptions = new WeakMap<object, () => void>();
 function bind(component: WechatMiniprogram.Component.TrivialInstance): void {
   subscriptions.get(component)?.();
@@ -61,6 +62,10 @@ Component({
     },
   },
   methods: {
+    openPlayer() {
+      openPlayer();
+    },
+    stopBubble() {},
     toggle() {
       void getApp<MusicApp>().player?.toggle();
     },

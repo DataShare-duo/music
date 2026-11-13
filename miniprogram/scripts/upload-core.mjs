@@ -220,7 +220,7 @@ export async function uploadValidated(ci, config) {
   await ci.upload({
     project,
     version: config.version,
-    desc: "DataShare 听见原生音乐界面开发版 · " + config.commit,
+    desc: "DataShare 听见原生全屏歌词开发版 · " + config.commit,
     robot: config.robot,
     setting: { es6: true, minify: true },
     onProgressUpdate: () => {},
@@ -231,7 +231,7 @@ export async function uploadValidated(ci, config) {
     version: config.version,
     commit: config.commit,
     robot: config.robot,
-    stage: "native-ui",
+    stage: "native-lyrics",
     entryPagePath: "pages/home/index",
     devicePlaybackVerified: false,
     reviewSubmitted: false,

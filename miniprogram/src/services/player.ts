@@ -33,6 +33,8 @@ export interface PlayerState {
   position: number;
   duration: number;
   sourceName: string;
+  source: string;
+  sourceTrackId: string;
   message: string;
   sessionId: string;
   linkVersion: number;
@@ -49,6 +51,8 @@ export class NativePlayer {
     position: 0,
     duration: 0,
     sourceName: "",
+    source: "",
+    sourceTrackId: "",
     message: "让好音乐，陪你一会儿",
     sessionId: "",
     linkVersion: 0,
@@ -234,6 +238,8 @@ export class NativePlayer {
     this.state.sessionId = pb.id;
     this.state.linkVersion = pb.link_version;
     this.state.sourceName = pb.play_source_name || "";
+    this.state.source = pb.play_source || "";
+    this.state.sourceTrackId = pb.play_source_track_id || "";
     this.bind(token, pb, resumeAt);
     this.audio.title = this.state.current?.title || "听见音乐";
     this.audio.singer = this.state.current?.artist || "";
@@ -259,6 +265,8 @@ export class NativePlayer {
       position: 0,
       duration: 0,
       sourceName: "",
+      source: "",
+      sourceTrackId: "",
       sessionId: "",
       linkVersion: 0,
       message: "实时解析并检查直连完整版…",

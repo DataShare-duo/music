@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Request
 
+from music.core.lyrics import LyricsView
 from music.schemas.api import CreatePlayback, NativePlaybackView, RefreshPlayback
 
 router = APIRouter(prefix="/api/miniprogram")
@@ -28,3 +29,8 @@ async def started(playback_id: str, request: Request):
 @router.post("/playbacks/{playback_id}/refresh", response_model=NativePlaybackView)
 async def refresh(playback_id: str, body: RefreshPlayback, request: Request):
     return await request.app.state.service.refresh(playback_id, body.expected_version, "direct")
+
+
+@router.get("/playbacks/{playback_id}/lyrics", response_model=LyricsView)
+async def lyrics(playback_id: str, request: Request):
+    return await request.app.state.lyrics.get(playback_id)

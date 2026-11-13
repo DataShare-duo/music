@@ -2,6 +2,7 @@
   "pages": [
     "pages/home/index",
     "pages/search/index",
+    "pages/player/index",
     "pages/diagnostics/index",
     "pages/verify/index",
     "page/index/index"

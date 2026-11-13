@@ -77,5 +77,6 @@ class NativePlaybackView(BaseModel):
     expires_at: datetime
     play_source: str | None = None
     play_source_name: str | None = None
+    play_source_track_id: str | None = None
     audio_duration: float | None = None
     error: dict | None = None

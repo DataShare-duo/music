@@ -199,6 +199,7 @@ class MusicService(CatalogService):
                 expires_at=pb.expires_at,
                 play_source=source,
                 play_source_name=SOURCE_NAMES.get(source),
+                play_source_track_id=(pb.play_track or {}).get("source_track_id"),
                 audio_duration=pb.audio_duration,
                 error={"code": pb.error_code, "message": pb.error_message}
                 if pb.error_code

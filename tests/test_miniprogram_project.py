@@ -56,3 +56,20 @@ def test_native_entry_and_experience_qr_compatibility_are_consistent():
         config = json.loads((root / f"src/pages/{page}/index.json").read_text(encoding="utf-8"))
         assert config["usingComponents"]["player-bar"] == "/components/player-bar/index"
         assert "<player-bar" in (root / f"src/pages/{page}/index.wxml").read_text(encoding="utf-8")
+
+
+def test_fullscreen_lyric_page_reuses_background_player_and_uses_native_text():
+    root = ROOT / "miniprogram"
+    app = json.loads((root / "src/app.json").read_text(encoding="utf-8"))
+    assert "pages/player/index" in app["pages"] and app["entryPagePath"] == "pages/home/index"
+    config = json.loads((root / "src/pages/player/index.json").read_text(encoding="utf-8"))
+    assert config["navigationStyle"] == "custom" and config["disableScroll"]
+    assert config["navigationBarTextStyle"] == "white"
+    source = (root / "src/pages/player/index.ts").read_text(encoding="utf-8")
+    assert "getBackgroundAudioManager" not in source and "createInnerAudioContext" not in source
+    markup = (root / "src/pages/player/index.wxml").read_text(encoding="utf-8")
+    assert "<rich-text" not in markup and "<web-view" not in markup
+    assert "{{item.text}}" in markup and "lyricStatus === 'plain'" in markup
+    style = (root / "src/pages/player/index.wxss").read_text(encoding="utf-8")
+    assert "blur(" in style and "safe-area-inset-bottom" in style
+    assert "resume(" in source and "pause()" in source

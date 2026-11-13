@@ -17,6 +17,7 @@ from music.core.access import AccessMiddleware
 from music.core.audio_probe import AudioProbe
 from music.core.config import ROOT, Settings
 from music.core.errors import AppError, error_handler
+from music.core.lyrics import LyricsService
 from music.core.streaming import AudioProxy
 from music.db.session import Database
 from music.providers.official import ProviderManager
@@ -64,6 +65,7 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True,
     )
     app.state.db, app.state.service = db, service
     app.state.proxy = audio_proxy
+    app.state.lyrics = LyricsService(service)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

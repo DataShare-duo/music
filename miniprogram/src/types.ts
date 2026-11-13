@@ -33,6 +33,8 @@ export interface Playback {
   refresh_count: number;
   expires_at: string;
   play_source_name: string | null;
+  play_source?: Source | null;
+  play_source_track_id?: string | null;
   audio_duration: number | null;
   error: { code: string; message: string } | null;
 }
@@ -48,4 +50,20 @@ export const sourceNames: Record<Source, string> = {
 export function time(value: number): string {
   const seconds = Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
   return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+}
+
+export interface LyricLine {
+  time_ms: number;
+  text: string;
+}
+export interface LyricsView {
+  status: "synced" | "plain" | "unavailable" | "instrumental" | "error";
+  source: string;
+  source_name: string;
+  source_track_id: string;
+  lines: LyricLine[];
+  plain_text: string;
+  fetched_at: string;
+  retry_after: number;
+  message: string;
 }
