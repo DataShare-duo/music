@@ -228,3 +228,67 @@ test("headset next/previous use current queue; stale events after teardown do no
   audio.emit("Play");
   assert.equal(player.state.playing, false);
 });
+
+test("natural end advances exactly once to the next song using the current queue", async () => {
+  const { player, audio, api, calls } = setup();
+  const pending = deferred();
+  api.post = async (path, data) => {
+    calls.push(["POST", path, data]);
+    return path.includes("/2/") ? pending.promise : session();
+  };
+  await player.play(song(), [song(), song(2)]);
+  audio.emit("Play");
+  await flush();
+  audio.emit("Ended");
+  audio.emit("Ended");
+  await flush();
+  assert.equal(calls.filter((c) => c[1].includes("/2/")).length, 1);
+  pending.resolve(session("two"));
+  await flush();
+  assert.equal(player.state.current.id, 2);
+  assert.equal(audio.src, session("two").audio_url);
+  assert.ok(
+    player.state.events.some((event) => event.includes("自动播放下一首")),
+  );
+  player.destroy();
+});
+test("automatic end of final or single song stops without looping or creating another click", async () => {
+  const { player, audio, api, calls } = setup();
+  api.post = async (path, data) => {
+    calls.push(["POST", path, data]);
+    return session("two");
+  };
+  await player.play(song(2), [song(), song(2)]);
+  audio.currentTime = 179;
+  audio.emit("TimeUpdate");
+  audio.emit("Waiting");
+  const before = calls.length;
+  audio.emit("Ended");
+  await flush();
+  assert.equal(calls.length, before);
+  assert.equal(player.state.playing, false);
+  assert.equal(player.state.loading, false);
+  assert.equal(player.state.position, 180);
+  assert.match(player.state.message, /列表已播放完/);
+  await player.play(song(2), [song(2)]);
+  const single = calls.length;
+  audio.emit("Ended");
+  await flush();
+  assert.equal(calls.length, single);
+  player.destroy();
+});
+test("natural end does not skip an incompatible next song or silently change source", async () => {
+  const { player, audio, api } = setup();
+  api.post = async (path) => {
+    if (path.includes("/2/"))
+      throw new ApiError("direct_audio_unsupported", "HTTPS不兼容");
+    return session();
+  };
+  await player.play(song(), [song(), song(2), song(3)]);
+  audio.emit("Ended");
+  await flush();
+  assert.equal(player.state.current.id, 2);
+  assert.equal(player.state.failed, true);
+  assert.equal(player.queue.length, 3);
+  player.destroy();
+});

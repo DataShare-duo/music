@@ -106,3 +106,32 @@ async def test_native_redirect_cannot_downgrade_https(monkeypatch):
     with pytest.raises(AppError) as error:
         await AudioProxy().open("https://example.com/audio", {}, https_only=True)
     assert error.value.code == "unsafe_audio_url"
+
+
+async def test_native_preflight_uses_generic_browser_ua_without_platform_credentials(monkeypatch):
+    import music.core.streaming as module
+
+    seen = []
+
+    async def target(url):
+        return httpx.URL("https://93.184.216.34/audio"), "example.com", "example.com"
+
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(206, headers={"content-type": "audio/mpeg"}, content=b"ID3audio")
+
+    original_client = httpx.AsyncClient
+    monkeypatch.setattr(module, "public_target", target)
+    monkeypatch.setattr(
+        module.httpx,
+        "AsyncClient",
+        lambda **kwargs: original_client(transport=httpx.MockTransport(handler)),
+    )
+    stream = await AudioProxy().open(
+        "https://example.com/audio", {}, "bytes=0-100", https_only=True
+    )
+    await stream.close()
+    headers = seen[0].headers
+    assert headers["user-agent"] == "Mozilla/5.0" and headers["range"] == "bytes=0-100"
+    assert headers["accept-encoding"] == "identity"
+    assert not any(name in headers for name in ("referer", "origin", "cookie", "authorization"))

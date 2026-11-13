@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import sys
+from urllib.parse import urlsplit
 
 from music.core.audio_probe import AudioProbe
 from music.core.config import Settings
@@ -46,10 +47,18 @@ async def main(args):
         if args.full or args.direct:
             result = await FullAudioResolver(providers, probe, settings).resolve(tracks[0])
             if args.direct:
-                await DirectAudioCheck(probe, settings.full_audio_verify_timeout).check(result)
+                direct_url = await DirectAudioCheck(
+                    probe, settings.full_audio_verify_timeout
+                ).check(result)
                 print(
                     json.dumps(
-                        {"direct_preflight_passed": True, "device_playback_verified": False},
+                        {
+                            "direct_preflight_passed": True,
+                            "device_playback_verified": False,
+                            "play_source": result.track.source,
+                            "direct_url_scheme": urlsplit(direct_url).scheme,
+                            "https_upgraded": urlsplit(result.audio.url).scheme == "http",
+                        },
                         ensure_ascii=False,
                     )
                 )

@@ -205,3 +205,107 @@ async def test_direct_checker_strips_headers_requires_full_length_and_preserves_
     with pytest.raises(AppError) as error:
         await DirectAudioCheck(probe).check(verified)
     assert error.value.code == "service_busy"
+
+
+@pytest.mark.parametrize(
+    ("source", "url", "expected"),
+    [
+        (
+            "netease",
+            "http://m801.music.126.net/a.mp3?token=keep",
+            "https://m801.music.126.net/a.mp3?token=keep",
+        ),
+        ("netease", "http://m701.music.126.net:80/a", "https://m701.music.126.net/a"),
+        ("kuwo", "http://kw-lv.kuwo.cn/a.mp3?bitrate", "https://kw-lv.kuwo.cn/a.mp3?bitrate"),
+        ("kuwo", "http://kw-er.sycdn.kuwo.cn/a", "https://kw-er.sycdn.kuwo.cn/a"),
+    ],
+)
+async def test_official_http_candidate_is_returned_only_after_https_full_validation(
+    source, url, expected
+):
+    class Probe:
+        async def duration(self, audio, timeout):
+            assert audio.url == expected and not audio.headers and audio.https_only
+            return 180
+
+    verified = VerifiedAudio(
+        Track(source, "1", "song", duration=180),
+        ResolvedAudio(url, {"Referer": "platform"}, "full"),
+        180,
+    )
+    assert await DirectAudioCheck(Probe()).check(verified) == expected
+    assert verified.audio.url == url and verified.audio.headers == {"Referer": "platform"}
+
+
+@pytest.mark.parametrize(
+    ("source", "url"),
+    [
+        ("soda", "http://m801.music.126.net/a"),
+        ("netease", "http://music.126.net.evil.example/a"),
+        ("netease", "http://notmusic.126.net/a"),
+        ("kuwo", "http://kuwo.cn.evil.example/a"),
+        ("kuwo", "http://127.0.0.1/a"),
+        ("netease", "http://user:secret@m801.music.126.net/a"),
+        ("netease", "http://m801.music.126.net:8080/a"),
+        ("kuwo", "https://kw-lv.kuwo.cn:8080/a"),
+        ("kuwo", "http://kw-lv.kuwo.cn:invalid/a"),
+    ],
+)
+async def test_https_conversion_rejects_untrusted_source_authority_and_port(source, url):
+    class Unused:
+        async def duration(self, *args):
+            pytest.fail("unsafe candidate must not reach network")
+
+    with pytest.raises(AppError) as error:
+        await DirectAudioCheck(Unused()).check(
+            VerifiedAudio(
+                Track(source, "1", "song", duration=180), ResolvedAudio(url, {}, "full"), 180
+            )
+        )
+    assert error.value.code == "direct_audio_unsupported"
+
+
+async def test_official_https_failure_does_not_fall_back_to_http_and_error_is_specific():
+    seen = []
+
+    class Blocked:
+        async def duration(self, audio, timeout):
+            seen.append(audio.url)
+            raise AppError("probe_link_unavailable", "do not expose signed URL")
+
+    original = "http://kw-lv.kuwo.cn/audio?secret=token"
+    with pytest.raises(AppError) as error:
+        await DirectAudioCheck(Blocked()).check(
+            VerifiedAudio(
+                Track("kuwo", "1", "song", duration=180), ResolvedAudio(original, {}, "full"), 180
+            )
+        )
+    assert seen == ["https://kw-lv.kuwo.cn/audio?secret=token"]
+    assert "拒绝访问或链接已失效" in error.value.message
+    assert "secret" not in error.value.message and not error.value.hidden
+
+
+async def test_native_https_candidate_saved_only_to_native_session_not_web_link(system):
+    from music.db.models import AudioLink
+
+    client, service, providers, _ = system
+    ids = await service.upsert_tracks([Track("netease", "http-track", "song", duration=90)])
+    await service.enqueue(ids)
+    await service.wait_for_idle()
+    original = "http://m801.music.126.net/audio?token=keep"
+
+    async def resolve(*args):
+        return ResolvedAudio(original, {"Referer": "https://music.163.com/"}, "unknown")
+
+    providers.resolve = resolve
+    response = await native(client, ids[0])
+    assert response.status_code == 200, response.text
+    assert response.json()["audio_url"] == original.replace("http:", "https:", 1)
+    async with service.db.sessions() as db:
+        session = await db.get(Playback, response.json()["id"])
+        assert session.audio_url.startswith("https://") and session.audio_headers == {}
+        assert (await db.get(AudioLink, ids[0])).url == original
+        assert (await db.get(Song, ids[0])).verification_state == "available"
+    web = (await playback(client, ids[0])).json()
+    async with service.db.sessions() as db:
+        assert (await db.get(Playback, web["id"])).audio_url == original

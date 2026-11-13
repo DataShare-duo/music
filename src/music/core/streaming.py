@@ -79,6 +79,10 @@ class AudioProxy:
             k: v for k, v in headers.items() if k.lower() in ("user-agent", "referer", "origin")
         }
         safe_headers["Accept-Encoding"] = "identity"
+        if https_only:
+            # Native audio uses a browser/WebView UA, not python-httpx. Keep this
+            # generic; no provider-specific Referer or auth is needed in preflight
+            safe_headers.setdefault("User-Agent", "Mozilla/5.0")
         if range_header:
             if not re.fullmatch(r"bytes=(?:\d+-\d*|-\d+)", range_header):
                 raise AppError("invalid_range", "只支持单段字节范围请求", 416)

@@ -37,6 +37,7 @@ export interface PlayerState {
   sessionId: string;
   linkVersion: number;
   events: string[];
+  queueEnded: boolean;
 }
 
 export class NativePlayer {
@@ -52,6 +53,7 @@ export class NativePlayer {
     sessionId: "",
     linkVersion: 0,
     events: [],
+    queueEnded: false,
   };
   private observers = new Set<(state: PlayerState) => void>();
   private handlers: Record<
@@ -137,6 +139,7 @@ export class NativePlayer {
     };
     const play = guard(() => {
       this.state.playing = true;
+      this.state.queueEnded = false;
       this.state.loading = false;
       this.state.message = "";
       this.event("收到实际 onPlay");
@@ -153,6 +156,8 @@ export class NativePlayer {
     });
     const ended = guard(() => {
       this.state.playing = false;
+      this.state.loading = false;
+      if (this.state.duration > 0) this.state.position = this.state.duration;
       this.event("播放结束");
       void this.next(1, true);
     });
@@ -247,6 +252,7 @@ export class NativePlayer {
     if (songs) this.queue = [...songs];
     Object.assign(this.state, {
       current: song,
+      queueEnded: false,
       playing: false,
       loading: true,
       failed: false,
@@ -380,7 +386,13 @@ export class NativePlayer {
     const index = this.queue.findIndex(
       (song) => song.id === this.state.current?.id,
     );
-    if (automatic && index + direction >= this.queue.length) return;
+    if (automatic && index + direction >= this.queue.length) {
+      this.state.queueEnded = true;
+      this.state.message = "当前列表已播放完，可重新选择歌曲";
+      this.event("列表已播放完，停止自动连播");
+      return;
+    }
+    if (automatic) this.event("自动播放下一首");
     const target = (index + direction + this.queue.length) % this.queue.length;
     await this.play(this.queue[target]);
   }
