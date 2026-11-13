@@ -62,6 +62,8 @@ try {
       "\n",
   );
   console.log(JSON.stringify(result));
+  // No outstanding upload remains once the SDK promise resolves and result is saved
+  process.stdout.write("", () => process.exit(0));
 } catch (error) {
   console.error(safeFailure(error));
   // SDK worker pools may survive a rejected upload; terminate this helper only

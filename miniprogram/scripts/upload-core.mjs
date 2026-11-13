@@ -145,8 +145,28 @@ export function safeFailure(error) {
     return "upload_network_failed: 微信上传网络连接失败，请检查网络后手动重试";
   if (/\b(?:private key|invalid key|signature)\b|签名/i.test(message))
     return "upload_key_rejected: 上传密钥或签名被拒绝，请核对 AppID 和上传密钥";
-  if (/wxml|wxss|compile|编译|syntax/i.test(message))
-    return "upload_compile_failed: 微信官方编译器未通过，请检查原生 WXML、WXSS 和构建产物";
+  if (/wxml|wxss|compile|编译|syntax/i.test(message)) {
+    const source = message.match(
+      /(?:\.\/)?((?:pages|components)\/[A-Za-z0-9_./-]+\.(?:wxml|wxss|js|json)):(\d+):(\d+):\s*([^\r\n]+)/,
+    );
+    const detail = source
+      ? " " +
+        source[1] +
+        ":" +
+        source[2] +
+        ":" +
+        source[3] +
+        " " +
+        source[4]
+          .replace(/-----BEGIN[\s\S]*/g, "[redacted]")
+          .replace(/https?:\/\/[^\s"']+/g, "[url]")
+          .replace(/[A-Za-z0-9+/=_-]{40,}/g, "[token]")
+          .slice(0, 180)
+      : "";
+    return (
+      "upload_compile_failed: 微信官方模板校验未通过，请检查 WXML/WXSS" + detail
+    );
+  }
   const parsedCode = message.match(
     /(?:errcode|errCode|code)[\s\"':=]+(-?\d{1,8})/,
   );

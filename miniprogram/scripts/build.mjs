@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
+import { checkTemplate } from "./template-check.mjs";
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -28,6 +29,11 @@ async function assets(directory) {
       throw new Error("symlink in source tree is not allowed");
     if (entry.isDirectory()) await assets(source);
     else if (!entry.name.endsWith(".ts")) {
+      if (entry.name.endsWith(".wxml"))
+        checkTemplate(
+          await fs.readFile(source, "utf8"),
+          path.relative(root, source),
+        );
       const target = path.join(
         dist,
         path.relative(path.join(root, "src"), source),

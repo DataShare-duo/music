@@ -153,6 +153,12 @@ test("errors are classified without exposing keys, raw error messages or identif
     safeFailure(new Error("miniprogram-ci script unexpected failure")),
     /upload_failed/,
   );
+  const templateError = safeFailure(
+    new Error(
+      "./pages/verify/index.wxml:2:2600: Bad attr disabled with unexpected ;",
+    ),
+  );
+  assert.match(templateError, /pages\/verify\/index\.wxml:2:2600/);
   assert.match(
     safeFailure(new Error("wxml compile failed")),
     /upload_compile_failed/,
