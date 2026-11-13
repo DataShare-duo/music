@@ -8,8 +8,6 @@
   "port": 80,
   "envParams": {
     "PORT": "80",
-    "MUSIC_ACCESS_USERNAME": "music",
-    "MUSIC_ACCESS_PASSWORD": "",
     "MUSIC_REQUEST_CONCURRENCY": "8",
     "MUSIC_REQUEST_RATE_PER_MINUTE": "120",
     "MUSIC_ACTION_RATE_PER_MINUTE": "20",
@@ -31,7 +29,6 @@
     "MUSIC_CATALOG_TTL": "21600",
     "MUSIC_SEARCH_TTL": "600",
     "MUSIC_FAILURE_COOLDOWN": "60",
-    "MUSIC_PLAYBACK_TTL": "7200",
-    "MUSIC_KEYWORDS": "[\"热门歌曲\",\"流行\",\"抖音热歌\",\"华语流行\",\"新歌\",\"经典华语\",\"独立音乐\",\"民谣\",\"治愈\",\"轻音乐\",\"说唱\",\"粤语\"]"
+    "MUSIC_PLAYBACK_TTL": "7200"
   }
 }

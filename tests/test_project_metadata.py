@@ -48,12 +48,12 @@ def test_readme_has_requested_structure_and_valid_local_links():
             assert (ROOT / target.split("#", 1)[0]).is_file(), target
 
 
-def test_render_covers_example_settings_without_a_committed_password():
+def test_render_covers_settings_without_auth_or_duplicate_keywords():
     example = (ROOT / ".env.example").read_text(encoding="utf-8")
     render = (ROOT / "render.yaml").read_text(encoding="utf-8")
     keys = re.findall(r"^(MUSIC_[A-Z_]+)=", example, re.MULTILINE)
     render_keys = re.findall(r"- key: (MUSIC_[A-Z_]+)", render)
-    assert set(keys) <= set(render_keys)
+    assert set(keys) - {"MUSIC_KEYWORDS"} <= set(render_keys)
     assert len(render_keys) == len(set(render_keys))
-    assert "MUSIC_ACCESS_PASSWORD=\n" in example
-    assert "- key: MUSIC_ACCESS_PASSWORD\n        sync: false" in render
+    assert "MUSIC_ACCESS_" not in example and "MUSIC_ACCESS_" not in render
+    assert "MUSIC_KEYWORDS" not in render_keys

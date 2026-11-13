@@ -109,7 +109,6 @@ async def system(tmp_path):
     settings = Settings(
         database_url=f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}",
         frontend_dist=tmp_path / "dist",
-        access_password="test-music-password-123",
         catalog_target=20,
         keywords=["热门"],
     )
@@ -121,7 +120,6 @@ async def system(tmp_path):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
             base_url="http://test",
-            auth=("music", "test-music-password-123"),
         ) as client:
             yield client, app.state.service, providers, proxy
 

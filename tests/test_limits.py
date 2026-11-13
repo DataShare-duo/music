@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import threading
 from datetime import timedelta
 
@@ -16,62 +15,46 @@ from music.core.limits import BoundedExecutor
 from music.db.models import Playback, ProviderCache, Song, SongStats, now
 from music.providers.official import Track
 
-PASSWORD = "test-music-password-123"
-
 
 def settings(**kwargs):
-    return Settings(_env_file=None, access_password=PASSWORD, **kwargs)
+    return Settings(_env_file=None, **kwargs)
 
 
-async def test_access_protects_pages_api_docs_and_audio(system):
+async def test_anonymous_pages_search_and_playback_work_without_credentials(system):
     client, service, _, _ = system
+    folder = service.settings.frontend_dist
+    (folder / "assets").mkdir(parents=True)
+    (folder / "index.html").write_text("<h1>public music</h1>", encoding="utf-8")
+    (folder / "assets/app.js").write_text("console.log('public')", encoding="utf-8")
     for path in (
         "/",
+        "/assets/app.js",
         "/api/home",
-        "/api/search?q=x",
-        "/api/playbacks/x/stream",
+        "/api/sources",
         "/docs",
         "/openapi.json",
+        "/api/health",
     ):
-        response = await client.get(path, auth=None)
-        assert response.status_code == 401
-        assert response.headers["www-authenticate"].startswith("Basic ")
-        assert "no-store" in response.headers["cache-control"]
-    assert not service.search_tasks
-    assert service.catalog_task is None
-    assert (await client.get("/api/sources", auth=("music", "wrong"))).status_code == 401
-    assert (await client.get("/api/sources")).status_code == 200
-    assert (await client.get("/api/health", auth=None)).status_code == 200
-    folder = service.settings.frontend_dist
-    folder.mkdir()
-    (folder / "index.html").write_text("<h1>private</h1>", encoding="utf-8")
-    response = await client.get("/")
-    assert response.status_code == 200 and "private" in response.text
-    assert response.headers["cache-control"] == "private, no-store"
+        response = await client.get(path)
+        assert response.status_code == 200, (path, response.text)
+        assert "www-authenticate" not in response.headers
+    song = await song_id(client, service)
+    assert (await client.get("/api/home")).status_code == 200
+    pb = (await playback(client, song)).json()
+    stream = await client.get(pb["stream_url"])
+    assert stream.status_code == 200 and stream.content.startswith(b"ID3")
+    assert "www-authenticate" not in stream.headers
+    assert (await client.post(f"/api/playbacks/{pb['id']}/started")).status_code == 200
+    async with service.db.sessions() as db:
+        assert (await db.get(SongStats, song)).listen_count == 1
 
 
-async def test_no_password_fails_closed_but_health_works(system):
-    client, service, _, _ = system
-    service.settings.access_password = Settings(_env_file=None, access_password="").access_password
-    assert (await client.get("/api/sources")).status_code == 503
-    assert (await client.get("/api/health", auth=None)).status_code == 200
-    assert not service.search_tasks
-
-
-@pytest.mark.parametrize(
-    "authorization",
-    [
-        "Bearer x",
-        "Basic !!!",
-        "Basic " + base64.b64encode(b"no-colon").decode(),
-        "Basic " + "a" * 5000,
-    ],
-)
-async def test_malformed_credentials_are_rejected(system, authorization):
+@pytest.mark.parametrize("authorization", ["Bearer x", "Basic !!!", "Basic " + "a" * 5000])
+async def test_legacy_authorization_headers_do_not_restore_password_gate(system, authorization):
     client, _, _, _ = system
-    assert (
-        await client.get("/api/sources", auth=None, headers={"Authorization": authorization})
-    ).status_code == 401
+    response = await client.get("/api/sources", headers={"Authorization": authorization})
+    assert response.status_code == 200
+    assert "www-authenticate" not in response.headers
 
 
 async def test_cross_site_and_oversized_bodies_are_rejected(system):
@@ -104,15 +87,12 @@ async def test_ip_rate_limit_does_not_trust_forwarded_header(system):
     assert response.status_code == 429 and response.headers["retry-after"]
 
 
-async def test_authentication_and_action_rate_limits(system):
+async def test_anonymous_playback_action_rate_limit_is_preserved(system):
     client, service, _, _ = system
-    for _ in range(10):
-        assert (await client.get("/api/sources", auth=None)).status_code == 401
-    assert (await client.get("/api/sources", auth=None)).status_code == 429
-    assert (await client.get("/api/sources")).status_code == 200
     service.settings.action_rate_per_minute = 1
     assert (await playback(client, 9999)).status_code == 409
     assert (await playback(client, 9999)).status_code == 429
+    assert (await client.get("/api/sources")).status_code == 200
 
 
 def test_rate_limit_tracking_is_bounded_and_expires(monkeypatch):
@@ -293,9 +273,7 @@ async def test_stream_and_request_slots_release_on_disconnect(kind):
     transport = httpx.ASGITransport(app=middleware)
     path = "/api/sources" if kind == "request" else "/api/playbacks/one/stream"
     other = path if kind in ("session", "request") else "/api/playbacks/two/stream"
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test", auth=("music", PASSWORD)
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         task = asyncio.create_task(client.get(path))
         await entered.wait()
         try:
@@ -330,7 +308,6 @@ async def test_stream_timeout_releases_slots_without_appending_json(started):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=middleware),
         base_url="http://test",
-        auth=("music", PASSWORD),
     ) as client:
         if started:
             with pytest.raises(TimeoutError):
@@ -388,10 +365,13 @@ async def test_stream_rejection_happens_before_upstream_and_disconnect_closes_co
     assert (await client.get(pb["stream_url"])).status_code == 200
 
 
-@pytest.mark.parametrize("password", ["short", "x" * 257])
-def test_invalid_access_password_length_is_rejected(password):
-    with pytest.raises(ValueError):
-        Settings(_env_file=None, access_password=password)
+@pytest.mark.parametrize("old_password", ["", "short", "x" * 257])
+def test_obsolete_access_variables_are_ignored(monkeypatch, old_password):
+    monkeypatch.setenv("MUSIC_ACCESS_USERNAME", "old-user")
+    monkeypatch.setenv("MUSIC_ACCESS_PASSWORD", old_password)
+    config = Settings(_env_file=None)
+    assert "access_username" not in type(config).model_fields
+    assert "access_password" not in type(config).model_fields
 
 
 async def test_background_saturation_preserves_previously_verified_song(system):
@@ -415,3 +395,29 @@ async def test_background_saturation_preserves_previously_verified_song(system):
         assert song.verification_state == "available"
         assert song.next_check_at > now()
     assert (await service.songs(ids))[0].id == ids[0]
+
+
+async def test_external_links_can_open_the_site_but_cross_site_embedding_is_blocked(system):
+    client, service, _, _ = system
+    folder = service.settings.frontend_dist
+    folder.mkdir()
+    (folder / "index.html").write_text("<h1>public music</h1>", encoding="utf-8")
+    response = await client.get(
+        "/",
+        headers={
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Dest": "document",
+        },
+    )
+    assert response.status_code == 200 and "www-authenticate" not in response.headers
+    for mode, destination in (("cors", "empty"), ("navigate", "iframe")):
+        response = await client.get(
+            "/",
+            headers={
+                "Sec-Fetch-Site": "cross-site",
+                "Sec-Fetch-Mode": mode,
+                "Sec-Fetch-Dest": destination,
+            },
+        )
+        assert response.status_code == 403

@@ -21,7 +21,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY pyproject.toml uv.lock README.md THIRD_PARTY_LICENSE_MUSICDL.txt ./
+COPY pyproject.toml uv.lock README.md .env.example THIRD_PARTY_LICENSE_MUSICDL.txt ./
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
 COPY src/ ./src/

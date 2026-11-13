@@ -1,10 +1,7 @@
-"""One-password access for the web UI, APIs and native browser audio requests."""
+"""Anonymous web/API access with bounded requests, tasks and audio streams."""
 
 import asyncio
-import base64
-import binascii
 import re
-import secrets
 import time
 from collections import Counter
 
@@ -73,22 +70,6 @@ class AccessMiddleware:
         self.streams = StreamLimits(settings)
         self.rates = RateLimits()
 
-    def authorized(self, headers):
-        authorization = headers.get("authorization", "")
-        try:
-            scheme, value = authorization.split(" ", 1)
-            if scheme.lower() != "basic" or len(value) > 4096:
-                return False
-            decoded = base64.b64decode(value, validate=True)
-            username, password = decoded.split(b":", 1)
-            return secrets.compare_digest(
-                username, self.settings.access_username.encode()
-            ) & secrets.compare_digest(
-                password, self.settings.access_password.get_secret_value().encode()
-            )
-        except (ValueError, binascii.Error, UnicodeError):
-            return False
-
     async def respond(self, scope, receive, send, code, message, status, headers=None):
         await JSONResponse(
             {"error": {"code": code, "message": message, "playback_id": None, "hidden": False}},
@@ -110,32 +91,19 @@ class AccessMiddleware:
         public_health = path == "/api/health" and method in ("GET", "HEAD")
         try:
             self.rates.admit((ip, "request"), self.settings.request_rate_per_minute)
-            if not public_health:
-                if not self.settings.access_password.get_secret_value():
-                    return await self.respond(
-                        scope,
-                        receive,
-                        send,
-                        "access_not_configured",
-                        "请先配置 MUSIC_ACCESS_PASSWORD 访问密码",
-                        503,
-                        {"Retry-After": "60"},
-                    )
-                if not self.authorized(headers):
-                    self.rates.admit((ip, "authentication"), 10)
-                    return await self.respond(
-                        scope,
-                        receive,
-                        send,
-                        "authentication_required",
-                        "请输入正确的访问账号和密码",
-                        401,
-                        {"WWW-Authenticate": 'Basic realm="Listen Music", charset="UTF-8"'},
-                    )
-                if headers.get("sec-fetch-site") == "cross-site":
-                    raise AppError("cross_site_request", "不接受跨站请求", 403)
-                if method == "POST" and ACTION_PATH.fullmatch(path):
-                    self.rates.admit((ip, "action"), self.settings.action_rate_per_minute)
+            top_level_navigation = (
+                method in ("GET", "HEAD")
+                and headers.get("sec-fetch-mode") == "navigate"
+                and headers.get("sec-fetch-dest") == "document"
+            )
+            if (
+                not public_health
+                and not top_level_navigation
+                and headers.get("sec-fetch-site") == "cross-site"
+            ):
+                raise AppError("cross_site_request", "不接受跨站请求", 403)
+            if method == "POST" and ACTION_PATH.fullmatch(path):
+                self.rates.admit((ip, "action"), self.settings.action_rate_per_minute)
             stream = STREAM_PATH.fullmatch(path) if method in ("GET", "HEAD") else None
             lease = self.streams.acquire(ip, stream[1]) if stream else self.requests.acquire()
         except AppError as exc:

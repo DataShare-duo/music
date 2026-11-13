@@ -7,8 +7,6 @@ services:
     dockerContext: .
     healthCheckPath: /api/health
     envVars:
-      - key: MUSIC_ACCESS_USERNAME
-        value: 'music'
       - key: MUSIC_REQUEST_CONCURRENCY
         value: '16'
       - key: MUSIC_REQUEST_RATE_PER_MINUTE
@@ -29,8 +27,6 @@ services:
         value: '2'
       - key: MUSIC_STREAM_MAX_SECONDS
         value: '900'
-      - key: MUSIC_ACCESS_PASSWORD
-        sync: false
       - key: MUSIC_DATABASE_URL
         value: 'sqlite+aiosqlite:///data/music.db'
       - key: MUSIC_NETWORK_TIMEOUT
@@ -55,5 +51,3 @@ services:
         value: '60'
       - key: MUSIC_PLAYBACK_TTL
         value: '7200'
-      - key: MUSIC_KEYWORDS
-        value: '["2026","热门歌曲","流行","抖音热歌","华语流行","新歌","经典华语","独立音乐","民谣","治愈","轻音乐"]'

@@ -84,8 +84,13 @@ def test_wechat_config_and_docker_default_ports_are_consistent(monkeypatch):
     assert "USER app" in docker and "cap_net_bind_service=+ep" in docker
     assert "music.healthcheck" in docker and "HEALTHCHECK" in docker
     keys = re.findall(r"^([A-Z][A-Z0-9_]*)=", example, re.MULTILINE)
-    assert set(keys) == set(env)
-    assert env["MUSIC_ACCESS_PASSWORD"] == ""
+    assert set(keys) - {"MUSIC_KEYWORDS"} == set(env)
+    assert "MUSIC_KEYWORDS" not in env
+    assert not any(key.startswith("MUSIC_ACCESS_") for key in env)
+    assert ".env.example" in next(
+        line for line in docker.splitlines() if line.startswith("COPY pyproject")
+    )
+    monkeypatch.delenv("MUSIC_KEYWORDS", raising=False)
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     settings = Settings(_env_file=None)
@@ -93,4 +98,4 @@ def test_wechat_config_and_docker_default_ports_are_consistent(monkeypatch):
     assert settings.full_audio_verify_concurrency == 1
     assert settings.stream_concurrency == 3
     assert settings.catalog_target == 100
-    assert settings.access_password.get_secret_value() == ""
+    assert "access_password" not in Settings.model_fields
