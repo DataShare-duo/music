@@ -212,7 +212,7 @@ async def test_home_returns_100_only_after_verification(system):
     ids = await service.upsert_tracks(
         [Track("soda", str(i), f"歌曲 {i}", duration=90) for i in range(120)], recommended=True
     )
-    await service.set_cache("catalog:soda", {}, 100)
+    await service.set_cache("catalog:all", {}, 100)
     assert (await client.get("/api/home")).json()["items"] == []
     await service.enqueue(ids)
     await service.wait_for_idle()
@@ -520,7 +520,7 @@ async def test_home_poll_preserves_order_and_drops_hidden_rows(system):
     )
     await service.enqueue(ids)
     await service.wait_for_idle()
-    await service.set_cache("catalog:soda", {}, 100)
+    await service.set_cache("catalog:all", {}, 100)
     pinned = list(reversed(ids))
     response = await client.get("/api/home", params={"ids": ",".join(map(str, pinned))})
     assert [item["id"] for item in response.json()["items"]] == pinned

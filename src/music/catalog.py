@@ -324,7 +324,7 @@ class CatalogService:
             )
             if home:
                 query = (
-                    query.where(Song.recommended.is_(True), Song.source == "soda")
+                    query.where(Song.recommended.is_(True))
                     .order_by(
                         func.rand() if self.db.engine.dialect.name == "mysql" else func.random()
                     )
@@ -354,7 +354,7 @@ class CatalogService:
         async with self.db.sessions() as db:
             query = select(Song.verification_state, func.count()).group_by(Song.verification_state)
             if home:
-                query = query.where(Song.recommended.is_(True), Song.source == "soda")
+                query = query.where(Song.recommended.is_(True))
             elif ids is not None:
                 query = query.where(Song.id.in_(ids))
             counts = Counter(dict((await db.execute(query)).all()))

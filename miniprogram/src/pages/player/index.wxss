@@ -369,32 +369,107 @@ page {
 
 .personal-actions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 60rpx;
-  padding: 4rpx 0 12rpx;
+  gap: 10rpx;
+  margin: 8rpx 16rpx 18rpx;
+  padding: 10rpx;
+  border: 1rpx solid #ffffff20;
+  border-radius: 28rpx;
+  background: #1014119c;
+  box-shadow: 0 10rpx 30rpx #00000018;
 }
 .personal-action {
   display: flex;
+  flex: 1;
+  flex-direction: column;
   align-items: center;
-  gap: 10rpx;
-  min-height: 64rpx;
+  justify-content: center;
+  gap: 8rpx;
+  min-height: 92rpx;
   margin: 0;
-  padding: 8rpx 12rpx;
-  font-size: 21rpx;
-  line-height: 1.5;
-  color: #ffffff90;
+  padding: 10rpx 6rpx;
+  border: 1rpx solid transparent;
+  border-radius: 20rpx;
+  color: #ffffffa8;
+  background: #ffffff08;
+  font-size: 20rpx;
+  line-height: 1.4;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
-.action-symbol {
-  font-size: 36rpx;
-  line-height: 1;
+.personal-action::after {
+  border: 0;
 }
-.share-symbol {
-  font-size: 33rpx;
-  line-height: 1;
+.personal-action[disabled] {
+  opacity: 0.38;
 }
-.action-selected {
-  color: #efb495;
+.personal-action-pressed {
+  transform: scale(0.96);
+  background: #ffffff18;
+}
+.personal-action:active {
+  transform: scale(0.96);
+  background: #ffffff18;
+}
+.action-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52rpx;
+  height: 52rpx;
+  border: 1rpx solid #ffffff20;
+  border-radius: 50%;
+  color: currentColor;
+  background: #ffffff0a;
+  box-sizing: border-box;
+}
+.action-star::before {
+  content: "☆";
+  position: absolute;
+  inset: -6rpx 0 0;
+  font-size: 48rpx;
+  line-height: 52rpx;
+  text-align: center;
+}
+.favorite-selected {
+  color: #ffd2a8;
+  border-color: #f1b98155;
+  background: #d66a4226;
+}
+.favorite-selected .action-star::before {
+  content: "★";
+}
+.action-heart::before {
+  content: "♡";
+  position: absolute;
+  inset: -4rpx 0 0;
+  font-size: 49rpx;
+  line-height: 52rpx;
+  text-align: center;
+}
+.like-selected {
+  color: #ffb5bd;
+  border-color: #ff9aa855;
+  background: #b94f6826;
+}
+.like-selected .action-heart::before {
+  content: "♥";
+}
+.action-share::before {
+  content: "↗";
+  position: absolute;
+  inset: -3rpx 0 0;
+  font-size: 44rpx;
+  font-weight: 300;
+  line-height: 52rpx;
+  text-align: center;
+}
+.share-action {
+  color: #c8d8cf;
+}
+.share-action:active {
+  background: #ffffff18;
 }
 .personal-error {
   display: block;

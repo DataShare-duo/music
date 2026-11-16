@@ -99,7 +99,7 @@ class MusicService(CatalogService):
         )
 
     async def home(self, ids=None):
-        cached = await self.cache("catalog:soda")
+        cached = await self.cache("catalog:all")
         if (not self.catalog_task or self.catalog_task.done()) and (
             not cached or cached.expires_at <= now()
         ):
@@ -112,7 +112,6 @@ class MusicService(CatalogService):
                         select(Song.id).where(
                             Song.id.in_(ids),
                             Song.recommended.is_(True),
-                            Song.source == "soda",
                             Song.verification_state == "available",
                         )
                     )
@@ -141,48 +140,49 @@ class MusicService(CatalogService):
         errors = []
         successes = 0
         count = 0
-        async with self.locks.get("catalog:soda"):
+        async with self.locks.get("catalog:all"):
             try:
-                for page in (1, 2, 3):
-                    for keyword in self.settings.keywords:
-                        try:
-                            tracks = await self.providers.search("soda", keyword, page, 20)
-                            ids = await self.upsert_tracks(tracks, recommended=True)
-                            await self.enqueue(ids)
-                            successes += 1
-                        except AppError as exc:
-                            errors.append(exc.message)
-                            if successes == 0 and len(errors) >= 3:
-                                break
-                        async with self.db.sessions() as db:
-                            count = await db.scalar(
-                                select(func.count())
-                                .select_from(Song)
-                                .where(
-                                    Song.recommended.is_(True),
-                                    Song.source == "soda",
-                                    Song.verification_state == "available",
+                for source in SOURCE_NAMES:
+                    for page in (1, 2, 3):
+                        for keyword in self.settings.keywords:
+                            try:
+                                tracks = await self.providers.search(source, keyword, page, 20)
+                                ids = await self.upsert_tracks(tracks, recommended=True)
+                                await self.enqueue(ids)
+                                successes += 1
+                            except AppError as exc:
+                                errors.append(f"{SOURCE_NAMES[source]}：{exc.message}")
+                            async with self.db.sessions() as db:
+                                count = await db.scalar(
+                                    select(func.count())
+                                    .select_from(Song)
+                                    .where(
+                                        Song.recommended.is_(True),
+                                        Song.verification_state == "available",
+                                    )
                                 )
-                            )
+                            if count >= self.settings.catalog_target:
+                                break
+                            await asyncio.sleep(0.15)
                         if count >= self.settings.catalog_target:
                             break
-                        await asyncio.sleep(0.15)
-                    if count >= self.settings.catalog_target or (
-                        successes == 0 and len(errors) >= 3
-                    ):
+                    if count >= self.settings.catalog_target:
                         break
                 await self.set_cache(
-                    "catalog:soda",
-                    {"failed": bool(errors), "message": errors[-1] if errors else None},
-                    self.settings.catalog_ttl if not errors else self.settings.failure_cooldown,
+                    "catalog:all",
+                    {
+                        "failed": bool(errors) and successes == 0,
+                        "message": errors[-1] if errors else None,
+                    },
+                    self.settings.catalog_ttl if successes else self.settings.failure_cooldown,
                 )
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception("Catalog refresh failed")
                 await self.set_cache(
-                    "catalog:soda",
-                    {"failed": True, "message": "曲库采集异常，请稍后自动重试"},
+                    "catalog:all",
+                    {"failed": True, "message": "多来源推荐曲库采集异常，请稍后自动重试"},
                     self.settings.failure_cooldown,
                 )
 

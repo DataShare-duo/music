@@ -150,3 +150,32 @@ test("fullscreen back is a small left chevron without a circle and keeps the tra
   assert.ok(!chevron.includes("border-right"));
   assert.ok(!rule(".collapse-pressed").includes("background"));
 });
+
+test("personal actions use a grouped card with selected states and readable labels", async () => {
+  const markup = await fs.readFile(
+    path.resolve(__dirname, "../src/pages/player/index.wxml"),
+    "utf8",
+  );
+  const css = await fs.readFile(
+    path.resolve(__dirname, "../src/pages/player/index.wxss"),
+    "utf8",
+  );
+  assert.ok(markup.includes('class="personal-actions"'));
+  assert.ok(markup.includes('class="action-icon action-star"'));
+  assert.ok(markup.includes('class="action-icon action-heart"'));
+  assert.ok(markup.includes('class="action-icon action-share"'));
+  assert.ok(markup.includes('share-action'));
+  assert.ok(markup.includes('hover-class="personal-action-pressed"'));
+  assert.ok(!markup.includes(">★</text>") && !markup.includes(">♥</text>"));
+  assert.match(css, /\.personal-actions[\s\S]*border-radius: 28rpx/);
+  assert.match(css, /\.personal-action[\s\S]*min-height: 92rpx/);
+  assert.match(css, /\.personal-action-pressed[\s\S]*transform: scale\(0\.96\)/);
+  assert.ok(
+    css.includes(".favorite-selected") && css.includes(".like-selected"),
+  );
+  assert.ok(
+    css.includes(".action-star::before") &&
+      css.includes(".action-heart::before"),
+  );
+  assert.ok(css.includes(".action-share::before"));
+});

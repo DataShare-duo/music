@@ -21,7 +21,7 @@ App({
       return;
     }
     try {
-      wx.cloud.init({ env: config.env, traceUser: false });
+      wx.cloud.init({ env: config.env, traceUser: true });
       this.personal = new PersonalStore();
       this.player = new NativePlayer(
         api,
