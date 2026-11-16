@@ -54,7 +54,7 @@ export function readShared(
   const title = decode(options.q).trim().slice(0, 100),
     artist = decode(options.a).trim().slice(0, 200) || "未知歌手";
   if (
-    !["soda", "netease", "kuwo"].includes(source) ||
+    !["soda", "netease", "kuwo", "qq", "kugou"].includes(source) ||
     !/^[-\w]{1,100}$/.test(id) ||
     !title
   )

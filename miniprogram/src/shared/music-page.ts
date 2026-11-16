@@ -32,7 +32,7 @@ export function registerMusicPage(mode: "home" | "search"): void {
       searched: "",
       source: "soda" as Source,
       sourceIndex: 0,
-      sourceNames: ["汽水音乐", "网易云音乐", "酷我音乐"],
+      sourceNames: ["汽水音乐", "网易云音乐", "酷我音乐", "QQ音乐", "酷狗音乐"],
       items: [] as ReturnType<typeof presentSongs>,
       featured: [] as ReturnType<typeof presentSongs>,
       loading: false,
@@ -69,12 +69,17 @@ export function registerMusicPage(mode: "home" | "search"): void {
       const query = decodeSearchQuery(options.q);
       const requested = options.source;
       const source: Source =
-        requested === "netease" || requested === "kuwo" ? requested : "soda";
+        requested === "netease" ||
+        requested === "kuwo" ||
+        requested === "qq" ||
+        requested === "kugou"
+          ? requested
+          : "soda";
       this.setData({
         query,
         searched: query,
         source,
-        sourceIndex: ["soda", "netease", "kuwo"].indexOf(source),
+        sourceIndex: ["soda", "netease", "kuwo", "qq", "kugou"].indexOf(source),
       });
       this.catalog = new Catalog(
         api,
@@ -192,7 +197,9 @@ export function registerMusicPage(mode: "home" | "search"): void {
     },
     sourceChange(event: WechatMiniprogram.PickerChange) {
       const index = Number(event.detail.value);
-      const source = (["soda", "netease", "kuwo"] as Source[])[index];
+      const source = (["soda", "netease", "kuwo", "qq", "kugou"] as Source[])[
+        index
+      ];
       if (!source) return;
       this.setData({ source, sourceIndex: index, page: 1 });
       if (this.data.searched) {

@@ -31,7 +31,7 @@ def _song(value):
     if not isinstance(value, dict):
         raise AppError("invalid_song", "歌曲信息无效", 400)
     source = _text(value.get("source"), "歌曲来源", 20)
-    if source not in {"soda", "netease", "kuwo"}:
+    if source not in {"soda", "netease", "kuwo", "qq", "kugou"}:
         raise AppError("invalid_song", "歌曲来源无效", 400)
     track_id = _text(value.get("source_track_id"), "平台歌曲 ID", 100)
     if any(ch in track_id for ch in ("/", "\\", "\\x00")):

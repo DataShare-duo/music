@@ -84,7 +84,7 @@ class NativePlaybackView(BaseModel):
 
 class RestoreSong(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    source: Literal["soda", "netease", "kuwo"]
+    source: Literal["soda", "netease", "kuwo", "qq", "kugou"]
     source_track_id: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
     query_hint: str = Field(min_length=1, max_length=100)
 

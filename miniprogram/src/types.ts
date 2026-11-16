@@ -1,4 +1,4 @@
-export type Source = "soda" | "netease" | "kuwo";
+export type Source = "soda" | "netease" | "kuwo" | "qq" | "kugou";
 export interface Song {
   id: number;
   source: Source;
@@ -46,6 +46,8 @@ export const sourceNames: Record<Source, string> = {
   soda: "汽水音乐",
   netease: "网易云音乐",
   kuwo: "酷我音乐",
+  qq: "QQ音乐",
+  kugou: "酷狗音乐",
 };
 export function time(value: number): string {
   const seconds = Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;

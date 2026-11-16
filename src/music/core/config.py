@@ -56,7 +56,12 @@ class Settings(BaseSettings):
     catalog_target: int = 500
     provider_concurrency: int = Field(default=3, ge=1, le=10)
     network_timeout: float = Field(default=12, gt=0)
-    fallback_sources: list[Literal["netease", "kuwo"]] = ["netease", "kuwo"]
+    fallback_sources: list[Literal["netease", "kuwo", "qq", "kugou"]] = [
+        "netease",
+        "kuwo",
+        "qq",
+        "kugou",
+    ]
     full_audio_verify_timeout: float = Field(default=30, gt=0)
     full_audio_verify_concurrency: int = Field(default=2, ge=1, le=2)
     full_audio_recheck_interval: int = Field(default=21600, ge=1)

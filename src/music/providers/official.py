@@ -6,7 +6,9 @@ Only request-protocol helpers and the official Soda share-page parser are reused
 
 from __future__ import annotations
 
+import hashlib
 import importlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,14 +16,20 @@ from functools import partial
 from html import unescape
 from types import SimpleNamespace
 from typing import Literal
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import requests
 
 from music.core.errors import AppError
 from music.core.limits import BoundedExecutor
 
-SOURCE_NAMES = {"soda": "汽水音乐", "netease": "网易云音乐", "kuwo": "酷我音乐"}
+SOURCE_NAMES = {
+    "soda": "汽水音乐",
+    "qq": "QQ音乐",
+    "kugou": "酷狗音乐",
+    "netease": "网易云音乐",
+    "kuwo": "酷我音乐",
+}
 UPSTREAM_COMMIT = "dca2f0967e46a8faf8d279737535471102d74ca3"
 
 
@@ -77,9 +85,13 @@ class OfficialProvider:
         module = importlib.import_module(f"musicdl.modules.sources.{self.source}")
         return getattr(
             module,
-            {"soda": "SodaMusicClient", "netease": "NeteaseMusicClient", "kuwo": "KuwoMusicClient"}[
-                self.source
-            ],
+            {
+                "soda": "SodaMusicClient",
+                "qq": "QQMusicClient",
+                "kugou": "KugouMusicClient",
+                "netease": "NeteaseMusicClient",
+                "kuwo": "KuwoMusicClient",
+            }[self.source],
         )
 
     def _session(self):
@@ -90,6 +102,8 @@ class OfficialProvider:
                 "Referer": {
                     "soda": "https://music.douyin.com/",
                     "netease": "https://music.163.com/",
+                    "qq": "https://y.qq.com/",
+                    "kugou": "https://www.kugou.com/",
                     "kuwo": "https://www.kuwo.cn/",
                 }[self.source],
             }
@@ -98,27 +112,49 @@ class OfficialProvider:
 
     def search_metadata(self, query: str, page: int, page_size: int) -> list[Track]:
         cls = self._client_class()
-        ctx = SimpleNamespace(
-            search_size_per_source=page * page_size, search_size_per_page=page_size
-        )
-        spec = cls._constructsearchurls(ctx, query)[page - 1]
+        client = None
+        if self.source in {"qq", "kugou"}:
+            client = cls(
+                search_size_per_source=page * page_size,
+                search_size_per_page=page_size,
+                disable_print=True,
+            )
+            spec = client._constructsearchurls(query)[page - 1]
+        else:
+            ctx = SimpleNamespace(
+                search_size_per_source=page * page_size, search_size_per_page=page_size
+            )
+            spec = cls._constructsearchurls(ctx, query)[page - 1]
         with self._session() as session:
-            if self.source == "netease":
+            if client:
+                session.headers.update(client.default_search_headers)
+            if isinstance(spec, dict):
+                response = session.post(
+                    spec["url"],
+                    data=spec.get("data"),
+                    params=spec.get("params"),
+                    timeout=self.timeout,
+                )
+            elif self.source == "netease":
                 response = session.post(spec["url"], data=spec["data"], timeout=self.timeout)
             else:
                 response = session.get(spec.replace("http://", "https://", 1), timeout=self.timeout)
             response.raise_for_status()
             if not response.content:
                 log_id = re.sub(r"[^A-Za-z0-9_-]", "", response.headers.get("x-tt-logid", ""))[:80]
-                suffix = f"，上游请求 ID：{log_id}" if log_id else ""
+                suffix = f"，上游请求 ID：{log_id}" if log_id and self.source == "soda" else ""
                 raise AppError(
-                    "upstream_empty_response", "汽水搜索接口返回空响应，请稍后重试" + suffix, 502
+                    "upstream_empty_response",
+                    f"{SOURCE_NAMES[self.source]}搜索接口返回空响应，请稍后重试" + suffix,
+                    502,
                 )
             try:
                 data = response.json()
             except ValueError as exc:
                 raise AppError(
-                    "upstream_invalid_response", "汽水搜索接口返回了无效数据，请稍后重试", 502
+                    "upstream_invalid_response",
+                    f"{SOURCE_NAMES[self.source]}搜索接口返回了无效数据，请稍后重试",
+                    502,
                 ) from exc
         if self.source == "soda":
             if "result_groups" not in data:
@@ -145,6 +181,53 @@ class OfficialProvider:
                     )
                 )
             return tracks
+        if self.source == "qq":
+            rows = (
+                (
+                    (data.get("music.search.SearchCgiService.DoSearchForQQMusicMobile") or {}).get(
+                        "data"
+                    )
+                    or {}
+                )
+                .get("body", {})
+                .get("item_song", [])
+            )
+            return [
+                Track(
+                    "qq",
+                    str(row.get("mid") or row.get("songmid")),
+                    row.get("title") or row.get("name") or "",
+                    ", ".join(
+                        x.get("name", "") for x in row.get("singer", []) if isinstance(x, dict)
+                    ),
+                    (row.get("album") or {}).get("name", ""),
+                    cover(
+                        f"https://y.gtimg.cn/music/photo_new/T002R800x800M000{(row.get('album') or {}).get('mid', '')}.jpg"
+                    ),
+                    float(row.get("interval") or 0),
+                )
+                for row in rows
+                if row.get("mid") or row.get("songmid")
+            ]
+        if self.source == "kugou":
+            rows = (data.get("data") or {}).get("lists", [])
+            return [
+                Track(
+                    "kugou",
+                    str(row.get("FileHash") or row.get("HQFileHash") or row.get("Hash") or ""),
+                    unescape(row.get("SongName") or row.get("OriSongName") or ""),
+                    unescape(row.get("SingerName") or "未知歌手"),
+                    unescape(row.get("AlbumName") or ""),
+                    cover(
+                        (row.get("trans_param") or {})
+                        .get("union_cover", "")
+                        .replace("{size}", "300")
+                    ),
+                    float(row.get("Duration") or row.get("ResDuration") or 0),
+                )
+                for row in rows
+                if row.get("FileHash") or row.get("HQFileHash") or row.get("Hash")
+            ]
         if self.source == "netease":
             if data.get("code") != 200:
                 raise AppError("access_denied", "网易云搜索接口当前不可用或需要授权")
@@ -262,6 +345,68 @@ class OfficialProvider:
                 metadata = self._client_class()._getsongmetainfo(ctx, track_id)
                 url = metadata.get("audition_url")
                 kind = "preview"
+            elif self.source == "qq":
+                from musicdl.modules.sources.qq import QQMusicClientUtils, SongFileType
+
+                url = None
+                for quality in SongFileType.SORTED_QUALITIES.value:
+                    params = {
+                        "filename": [f"{quality[0]}{track_id}{track_id}{quality[1]}"],
+                        "guid": QQMusicClientUtils.randomguid(),
+                        "songmid": [track_id],
+                        "songtype": [0],
+                    }
+                    payload = QQMusicClientUtils.buildrequestdata(
+                        params=params,
+                        module="music.vkey.GetVkey",
+                        method="UrlGetVkey",
+                        credential=None,
+                        common_override={"ct": "19"},
+                    )
+                    response = session.post(
+                        QQMusicClientUtils.endpoint,
+                        data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
+                            "utf-8"
+                        ),
+                        timeout=self.timeout,
+                    )
+                    response.raise_for_status()
+                    row = (
+                        (
+                            (response.json().get("music.vkey.GetVkey.UrlGetVkey") or {}).get("data")
+                            or {}
+                        ).get("midurlinfo")
+                        or [{}]
+                    )[0]
+                    candidate = row.get("purl") or row.get("wifiurl")
+                    if candidate:
+                        url = urljoin(QQMusicClientUtils.music_domain, candidate)
+                        break
+                kind = "unknown"
+            elif self.source == "kugou":
+                digest = hashlib.md5((track_id + "kgcloudv2").encode()).hexdigest()
+                response = session.get(
+                    "https://trackercdn.kugou.com/i/v2/",
+                    params={
+                        "cdnBackup": 1,
+                        "behavior": "download",
+                        "pid": 1,
+                        "cmd": 21,
+                        "appid": 1001,
+                        "hash": track_id,
+                        "key": digest,
+                    },
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                row = response.json()
+                url = (
+                    row.get("url")
+                    or row.get("backup_url")
+                    or row.get("backupUrl")
+                    or row.get("mp3Url")
+                )
+                kind = "unknown"
             elif self.source == "netease":
                 from musicdl.modules.sources.netease import EapiCryptoUtils
 

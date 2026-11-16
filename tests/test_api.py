@@ -472,7 +472,7 @@ async def test_old_preview_session_is_rejected_even_with_valid_url(system):
 async def test_health_and_unknown_routes(system):
     client, _, _, _ = system
     assert (await client.get("/api/health")).json()["database"] == "ok"
-    assert len((await client.get("/api/sources")).json()) == 3
+    assert len((await client.get("/api/sources")).json()) == 5
     assert (await client.get("/api/nonexistent")).status_code == 404
     assert (await client.get("/")).status_code == 404
 
