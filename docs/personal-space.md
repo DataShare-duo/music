@@ -1,5 +1,11 @@
 # FastAPI + MySQL 用户空间与小程序部署
 
+## 当前交付状态
+
+源码提交 `511ab2c2` 已推送，微信开发版 `0.5.0-511ab2c2` 已上传成功，未提审或发布
+
+本机 MySQL 8.0.45 隔离测试库已完成 Alembic 空库初始化、个人数据写入和歌曲 upsert 验证；生产 MySQL `10.17.106.21:3306` 尚未连接，需在云托管 VPC 内配置密码和白名单后执行初始化
+
 ## 当前架构
 
 本项目只面向原生微信小程序，作者为 DataShare
@@ -94,14 +100,14 @@ POST /api/miniprogram/personal
 
 请求体使用 action 和 data，支持：
 
-| action | 用途 |
-| --- | --- |
-| profile.get | 获取当前用户资料和收藏状态 |
-| profile.enable | 创建个人空间 |
-| mark.set | 设置收藏或喜欢 |
-| history.sync | 同步搜索历史和最近播放 |
-| avatar.set | 将头像 Base64 写入 MySQL |
-| avatar.get | 读取当前用户头像 |
+| action         | 用途                       |
+| -------------- | -------------------------- |
+| profile.get    | 获取当前用户资料和收藏状态 |
+| profile.enable | 创建个人空间               |
+| mark.set       | 设置收藏或喜欢             |
+| history.sync   | 同步搜索历史和最近播放     |
+| avatar.set     | 将头像 Base64 写入 MySQL   |
+| avatar.get     | 读取当前用户头像           |
 
 服务端校验微信云调用请求头：
 
