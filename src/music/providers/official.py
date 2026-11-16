@@ -108,7 +108,18 @@ class OfficialProvider:
             else:
                 response = session.get(spec.replace("http://", "https://", 1), timeout=self.timeout)
             response.raise_for_status()
-            data = response.json()
+            if not response.content:
+                log_id = re.sub(r"[^A-Za-z0-9_-]", "", response.headers.get("x-tt-logid", ""))[:80]
+                suffix = f"，上游请求 ID：{log_id}" if log_id else ""
+                raise AppError(
+                    "upstream_empty_response", "汽水搜索接口返回空响应，请稍后重试" + suffix, 502
+                )
+            try:
+                data = response.json()
+            except ValueError as exc:
+                raise AppError(
+                    "upstream_invalid_response", "汽水搜索接口返回了无效数据，请稍后重试", 502
+                ) from exc
         if self.source == "soda":
             if "result_groups" not in data:
                 raise AppError("upstream_changed", "汽水搜索接口受限或返回结构发生变化")
