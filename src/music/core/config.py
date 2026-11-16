@@ -32,7 +32,11 @@ class Settings(BaseSettings):
         env_prefix="MUSIC_", env_file=".env", env_file_encoding="utf-8-sig", extra="ignore"
     )
 
-    database_url: str = f"sqlite+aiosqlite:///{(ROOT / 'data/music.db').as_posix()}"
+    database_url: str = "mysql+asyncmy://music:REPLACE_ME@10.17.106.21:3306/music?charset=utf8mb4"
+    auto_migrate: bool = False
+    database_tls: bool = False
+    database_ca_file: str | None = None
+    wechat_app_id: str = "wxe1af0ed55ed257b7"
     frontend_dist: Path = ROOT / "frontend/dist"
     request_concurrency: int = Field(default=16, ge=1, le=128)
     request_rate_per_minute: int = Field(default=120, ge=1, le=10000)

@@ -12,8 +12,12 @@ from music.core.errors import AppError
 from music.core.limits import Capacity, Lease
 
 STREAM_PATH = re.compile(r"^/api/playbacks/([^/]+)/stream$")
-ACTION_PATH = re.compile(r"^/api/(?:miniprogram/)?(songs/[^/]+/playbacks|playbacks/[^/]+/refresh)$")
+ACTION_PATH = re.compile(
+    r"^/api/(?:miniprogram/)?(songs/[^/]+/playbacks|playbacks/[^/]+/refresh|personal)$"
+)
 MAX_BODY = 16384
+PERSONAL_AVATAR_PATH = "/api/miniprogram/personal"
+PERSONAL_AVATAR_MAX_BODY = 4 * 1024 * 1024
 
 
 class RateLimits:
@@ -143,7 +147,8 @@ class AccessMiddleware:
                     return await self.respond(
                         scope, receive, send, "invalid_body", "请求长度无效", 400
                     )
-                if length > MAX_BODY:
+                body_limit = PERSONAL_AVATAR_MAX_BODY if path == PERSONAL_AVATAR_PATH else MAX_BODY
+                if length > body_limit:
                     return await self.respond(
                         scope, receive, send, "body_too_large", "请求内容过大", 413
                     )
@@ -155,7 +160,7 @@ class AccessMiddleware:
                             if message["type"] == "http.disconnect":
                                 return
                             chunk = message.get("body", b"")
-                            if len(body) + len(chunk) > MAX_BODY:
+                            if len(body) + len(chunk) > body_limit:
                                 return await self.respond(
                                     scope, receive, send, "body_too_large", "请求内容过大", 413
                                 )

@@ -7,7 +7,8 @@ from dataclasses import asdict
 from datetime import timedelta
 
 from sqlalchemy import func, or_, select, update
-from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from music.core.errors import AppError
 from music.core.locks import Locks
@@ -271,22 +272,41 @@ class CatalogService:
                     continue
                 values = asdict(track)
                 values.update(recommended=recommended, updated_at=now())
-                statement = insert(Song).values(**values)
-                changes = {
-                    key: getattr(statement.excluded, key)
-                    for key in values
-                    if key not in ("recommended", "source", "source_track_id")
-                }
-                if recommended:
-                    changes["recommended"] = True
-                song_id = (
+                dialect = self.db.engine.dialect.name
+                insert_fn = mysql_insert if dialect == "mysql" else sqlite_insert
+                statement = insert_fn(Song).values(**values)
+                if dialect == "mysql":
+                    changes = {
+                        key: getattr(statement.inserted, key)
+                        for key in values
+                        if key not in ("source", "source_track_id")
+                    }
+                    if recommended:
+                        changes["recommended"] = True
+                    await db.execute(statement.on_duplicate_key_update(**changes))
+                else:
+                    changes = {
+                        key: getattr(statement.excluded, key)
+                        for key in values
+                        if key not in ("recommended", "source", "source_track_id")
+                    }
+                    if recommended:
+                        changes["recommended"] = True
                     await db.execute(
                         statement.on_conflict_do_update(
                             index_elements=["source", "source_track_id"], set_=changes
-                        ).returning(Song.id)
+                        )
                     )
-                ).scalar_one()
-                await db.execute(insert(SongStats).values(song_id=song_id).on_conflict_do_nothing())
+                song_id = await db.scalar(
+                    select(Song.id).where(
+                        Song.source == track.source, Song.source_track_id == track.source_track_id
+                    )
+                )
+                stats_insert = insert_fn(SongStats).values(song_id=song_id)
+                if dialect == "mysql":
+                    await db.execute(stats_insert.on_duplicate_key_update(song_id=song_id))
+                else:
+                    await db.execute(stats_insert.on_conflict_do_nothing())
                 ids.append(song_id)
             await db.commit()
         return list(dict.fromkeys(ids))
@@ -305,7 +325,9 @@ class CatalogService:
             if home:
                 query = (
                     query.where(Song.recommended.is_(True), Song.source == "soda")
-                    .order_by(func.random())
+                    .order_by(
+                        func.rand() if self.db.engine.dialect.name == "mysql" else func.random()
+                    )
                     .limit(100)
                 )
             elif ids is not None:
@@ -350,17 +372,27 @@ class CatalogService:
 
     async def set_cache(self, key, value, ttl):
         async with self.db.sessions() as db:
-            statement = insert(ProviderCache).values(
+            insert_fn = mysql_insert if self.db.engine.dialect.name == "mysql" else sqlite_insert
+            statement = insert_fn(ProviderCache).values(
                 key=key, value=value, expires_at=now() + timedelta(seconds=ttl), updated_at=now()
             )
-            await db.execute(
-                statement.on_conflict_do_update(
-                    index_elements=["key"],
-                    set_={
-                        "value": statement.excluded.value,
-                        "expires_at": statement.excluded.expires_at,
-                        "updated_at": statement.excluded.updated_at,
-                    },
+            if self.db.engine.dialect.name == "mysql":
+                await db.execute(
+                    statement.on_duplicate_key_update(
+                        value=statement.inserted.value,
+                        expires_at=statement.inserted.expires_at,
+                        updated_at=statement.inserted.updated_at,
+                    )
                 )
-            )
+            else:
+                await db.execute(
+                    statement.on_conflict_do_update(
+                        index_elements=["key"],
+                        set_={
+                            "value": statement.excluded.value,
+                            "expires_at": statement.excluded.expires_at,
+                            "updated_at": statement.excluded.updated_at,
+                        },
+                    )
+                )
             await db.commit()

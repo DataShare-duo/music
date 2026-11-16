@@ -20,33 +20,11 @@ def settings(**kwargs):
     return Settings(_env_file=None, **kwargs)
 
 
-async def test_anonymous_pages_search_and_playback_work_without_credentials(system):
-    client, service, _, _ = system
-    folder = service.settings.frontend_dist
-    (folder / "assets").mkdir(parents=True)
-    (folder / "index.html").write_text("<h1>public music</h1>", encoding="utf-8")
-    (folder / "assets/app.js").write_text("console.log('public')", encoding="utf-8")
-    for path in (
-        "/",
-        "/assets/app.js",
-        "/api/home",
-        "/api/sources",
-        "/docs",
-        "/openapi.json",
-        "/api/health",
-    ):
-        response = await client.get(path)
-        assert response.status_code == 200, (path, response.text)
-        assert "www-authenticate" not in response.headers
-    song = await song_id(client, service)
-    assert (await client.get("/api/home")).status_code == 200
-    pb = (await playback(client, song)).json()
-    stream = await client.get(pb["stream_url"])
-    assert stream.status_code == 200 and stream.content.startswith(b"ID3")
-    assert "www-authenticate" not in stream.headers
-    assert (await client.post(f"/api/playbacks/{pb['id']}/started")).status_code == 200
-    async with service.db.sessions() as db:
-        assert (await db.get(SongStats, song)).listen_count == 1
+async def test_miniprogram_backend_is_available_without_web_frontend(system):
+    client, _, _, _ = system
+    assert (await client.get("/")).status_code == 404
+    assert (await client.get("/api/health")).status_code == 200
+    assert (await client.get("/api/sources")).status_code == 200
 
 
 @pytest.mark.parametrize("authorization", ["Bearer x", "Basic !!!", "Basic " + "a" * 5000])
@@ -397,27 +375,7 @@ async def test_background_saturation_preserves_previously_verified_song(system):
     assert (await service.songs(ids))[0].id == ids[0]
 
 
-async def test_external_links_can_open_the_site_but_cross_site_embedding_is_blocked(system):
-    client, service, _, _ = system
-    folder = service.settings.frontend_dist
-    folder.mkdir()
-    (folder / "index.html").write_text("<h1>public music</h1>", encoding="utf-8")
-    response = await client.get(
-        "/",
-        headers={
-            "Sec-Fetch-Site": "cross-site",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Dest": "document",
-        },
-    )
-    assert response.status_code == 200 and "www-authenticate" not in response.headers
-    for mode, destination in (("cors", "empty"), ("navigate", "iframe")):
-        response = await client.get(
-            "/",
-            headers={
-                "Sec-Fetch-Site": "cross-site",
-                "Sec-Fetch-Mode": mode,
-                "Sec-Fetch-Dest": destination,
-            },
-        )
-        assert response.status_code == 403
+async def test_web_frontend_is_not_served(system):
+    client, _, _, _ = system
+    response = await client.get("/")
+    assert response.status_code == 404

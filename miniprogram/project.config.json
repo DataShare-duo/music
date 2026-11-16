@@ -28,10 +28,6 @@
       {
         "type": "folder",
         "value": "scripts"
-      },
-      {
-        "type": "folder",
-        "value": "cloudfunctions"
       }
     ]
   },
@@ -47,6 +43,5 @@
         }
       ]
     }
-  },
-  "cloudfunctionRoot": "cloudfunctions/"
+  }
 }

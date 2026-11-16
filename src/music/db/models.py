@@ -7,10 +7,12 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.mysql import MEDIUMBLOB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
@@ -30,8 +32,28 @@ class UTCDateTime(TypeDecorator):
         return value.replace(tzinfo=UTC) if value else value
 
 
+class AvatarBlob(TypeDecorator):
+    impl = LargeBinary
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        return dialect.type_descriptor(MEDIUMBLOB() if dialect.name == "mysql" else LargeBinary())
+
+
 class Base(DeclarativeBase):
-    pass
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        args = cls.__dict__.get("__table_args__", ())
+        options = {
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_bin",
+        }
+        if isinstance(args, tuple):
+            cls.__table_args__ = (*args, options)
+        else:
+            cls.__table_args__ = {**options, **args}
+        super().__init_subclass__(**kwargs)
 
 
 class Song(Base):
@@ -116,3 +138,79 @@ class ProviderCache(Base):
     value: Mapped[dict] = mapped_column(JSON, default=dict)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+
+
+class User(Base):
+    __tablename__ = "users"
+    user_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    app_id: Mapped[str] = mapped_column(String(64))
+    avatar_blob: Mapped[bytes | None] = mapped_column(AvatarBlob())
+    avatar_mime: Mapped[str | None] = mapped_column(String(40))
+    avatar_sha256: Mapped[str | None] = mapped_column(String(64))
+    avatar_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+
+
+class UserMark(Base):
+    __tablename__ = "user_marks"
+    __table_args__ = (UniqueConstraint("user_key", "kind", "source", "source_track_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_key: Mapped[str] = mapped_column(
+        ForeignKey("users.user_key", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), index=True)
+    source: Mapped[str] = mapped_column(String(20))
+    source_track_id: Mapped[str] = mapped_column(String(100))
+    title: Mapped[str] = mapped_column(String(500))
+    artist: Mapped[str] = mapped_column(String(500))
+    album: Mapped[str] = mapped_column(String(500), default="")
+    cover_url: Mapped[str] = mapped_column(Text, default="")
+    duration: Mapped[float] = mapped_column(Float, default=0)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+
+
+class UserHistoryState(Base):
+    __tablename__ = "user_history_state"
+    __table_args__ = (UniqueConstraint("user_key", "kind"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_key: Mapped[str] = mapped_column(
+        ForeignKey("users.user_key", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    epoch: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class UserHistory(Base):
+    __tablename__ = "user_history"
+    __table_args__ = (UniqueConstraint("user_key", "kind", "history_key"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_key: Mapped[str] = mapped_column(
+        ForeignKey("users.user_key", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), index=True)
+    history_key: Mapped[str] = mapped_column(String(220))
+    query: Mapped[str | None] = mapped_column(String(100))
+    source: Mapped[str | None] = mapped_column(String(20))
+    source_track_id: Mapped[str | None] = mapped_column(String(100))
+    title: Mapped[str | None] = mapped_column(String(500))
+    artist: Mapped[str | None] = mapped_column(String(500))
+    album: Mapped[str | None] = mapped_column(String(500))
+    cover_url: Mapped[str | None] = mapped_column(Text)
+    duration: Mapped[float | None] = mapped_column(Float)
+    source_name: Mapped[str | None] = mapped_column(String(80))
+    happened_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now, index=True)
+
+
+class UserOperation(Base):
+    __tablename__ = "user_operations"
+    __table_args__ = (UniqueConstraint("user_key", "operation_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_key: Mapped[str] = mapped_column(
+        ForeignKey("users.user_key", ondelete="CASCADE"), index=True
+    )
+    operation_id: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)

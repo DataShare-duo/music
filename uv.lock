@@ -71,6 +71,22 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncmy"
+version = "0.2.18"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/98/45/a21558072d89a5446791b0817c03ff410db5951a0571630f2a5d28fd696b/asyncmy-0.2.18.tar.gz", hash = "sha256:a5b28e1583814e6141ea59454baff43d1ca60df7c3be7a4c1c9bd77788d34689" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/42/5c/717fbede6fced60115a832328f92dd64a538975f4e17f14fb0b9d3f334f9/asyncmy-0.2.18-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:cf4cf3b65d15c536c60ea9897766abe00a9d6abe5359027a1dce923f0005fe0a" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/8a/fc/6721999759b6b05350ed775a239144d61fab846f52cd22675978064feb89/asyncmy-0.2.18-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:e126228d0f194c8bd7fb811884f736531f7e05f3d5060ae155c1dfd88830525c" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/80/c1/14d1f162d0483e5eab4585a691a4b4cc1f814b891554f6acb7a57cb04f39/asyncmy-0.2.18-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2ee52b13105a157639752603985ee4e62c429cde1c83100bcf2e823d6d844826" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/63/e0/bc379077d0b3eac25c892cc5930a6bf4dd8607b71f7d1a09da3e27f0b2d9/asyncmy-0.2.18-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6fd82f8d088ca6d9c54300c57c54221fcdbe75829ed60585bc174c4904dce2ff" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/d5/f8/2f049eb42d722b7a7860f40c8dbece89c03798bd58fb44f1a1dff3319631/asyncmy-0.2.18-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:cb513553d9f23d7bc3d1ef53cae088cf9ae3644e1c287e9611b537daf49a86e4" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/ab/ef/d0248732230704ef9d87094568243b07b3f70d18f238a0e33f9f6740cdc7/asyncmy-0.2.18-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:3bf122f18ef402d613e969076db02d65ac091fba094c577d0e04a7299a6ec72e" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/12/8e/859103f017dcaa2a72dd1733e51b7bdbf543aac386b0c78bd15ca08223bc/asyncmy-0.2.18-cp313-cp313-win32.whl", hash = "sha256:3b79f2c6afaa05e34b4bdd9364df148c9f8f6d8a971265a0488a312243a6ff9f" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/dc/3b/dc8627bcbad15baae9df62ddd29c8f1ad1e94ba276d3456c31b2c987389b/asyncmy-0.2.18-cp313-cp313-win_amd64.whl", hash = "sha256:f3000e4d1706bc2364236003331870140f3a8748a71cf9e5dfe437ed038c51f0" },
+]
+
+[[package]]
 name = "av"
 version = "17.1.0"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -537,8 +553,8 @@ name = "music"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiosqlite" },
     { name = "alembic" },
+    { name = "asyncmy" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "musicdl" },
@@ -550,6 +566,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "aiosqlite" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -557,8 +574,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiosqlite", specifier = ">=0.21,<1" },
     { name = "alembic", specifier = ">=1.15,<2" },
+    { name = "asyncmy", specifier = ">=0.2,<1" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "musicdl", git = "https://github.com/CharlesPikachu/musicdl.git?rev=dca2f0967e46a8faf8d279737535471102d74ca3" },
@@ -570,6 +587,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "aiosqlite", specifier = ">=0.21,<1" },
     { name = "pytest", specifier = ">=8,<10" },
     { name = "pytest-asyncio", specifier = ">=0.25,<2" },
     { name = "ruff", specifier = ">=0.11,<1" },

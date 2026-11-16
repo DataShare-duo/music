@@ -1,147 +1,168 @@
-# 用户空间、最近播放与歌曲分享
+# FastAPI + MySQL 用户空间与小程序部署
 
-## 当前交付状态
+## 当前架构
 
-2026-11-13 源码提交 c714366d 已推送，微信官方工具成功上传开发版 0.4.0-c714366d，入口 pages/home/index，未提审或发布
+本项目只面向原生微信小程序，作者为 DataShare
 
-| 项目                                 | 结果                                                     |
-| ------------------------------------ | -------------------------------------------------------- |
-| 后端测试与静态检查                   | 173 项测试通过，ruff 通过                                |
-| 小程序及用户云函数本机测试           | 72 项通过，构建通过                                      |
-| 现有 Web 回归                        | 25 项测试通过，构建通过，源码未改动                      |
-| 小程序开发版上传                     | 微信返回 uploaded                                        |
-| 更新现有音乐后端                     | 本轮未执行云端更新，需部署恢复接口与迁移 0004            |
-| 用户云函数、文档数据库和头像权限部署 | 未执行，当前会话无已登录后台控制接口，也无云资源管理凭据 |
-| 真实双账号、头像权限及朋友圈验收     | 尚未执行，不以本机模拟测试替代                           |
+- FastAPI 负责音乐、播放、收藏、喜欢、最近播放、搜索历史和头像接口
+- MySQL 8.0 保存全部业务数据和头像 BLOB
+- 不使用 SQLite、微信云数据库、微信云函数或微信云存储
+- 小程序所有业务请求通过 wx.cloud.callContainer 调用 FastAPI
+- 生产关闭云托管公网访问，只允许小程序云调用
+- Web 源码保留在仓库中，但不进入生产 Docker 镜像，也不由 FastAPI 托管
 
-开发包上传不会自动部署云函数、数据库或音乐后端，在这些资源就绪之前，启用个人空间可能提示个人服务不可用，旧环境不具备恢复接口时分享和个人列表歌曲恢复也不会成功
+## MySQL 地址
 
-## 功能与边界
+测试地址，仅用于本机联调：
 
-作者 DataShare，版本 0.4.0，现有 Web 不增加用户体系，README 不修改
-
-- 首页右上角“我的”进入个人空间，首次启用需确认，不需要手机号、密码或 AppSecret
-- 默认头像与“微信用户”，头像由用户主动选择，不设置也可使用收藏与喜欢
-- 全屏播放器提供独立的收藏、喜欢、分享入口，状态归属原始平台歌曲，不因备用音源变更而复制
-- “我的”展示收藏、喜欢、最近播放，每页 20 首，每个收藏／喜欢列表最多 200 首，最近播放保留 100 首不同歌曲
-- 搜索历史最多 20 条，游客本机保存，启用个人空间后合并云端；搜索框实际提交才记录，分页和轮询不记录
-- 最近播放只在当前背景播放器会话实际 onPlay 后记录，同一会话的暂停、继续、拖动和链接刷新不重复记录，自动下一首同样适用
-- 个人同步失败不会阻断听歌，待同步历史有界保留，前台每 60 秒及回到前台重试，不承诺微信后台网络请求持续执行
-- 删除与清空通过云端清理版本阻止旧设备重新上传旧记录，检测到较新的清理版本时丢弃旧版本待同步新增项，隐私清理优先于保留离线新增
-- 暂不可播放歌曲保留收藏／历史，不从个人数据中删除，点击时重新验证当前音源
-- 分享支持好友／群聊和朋友圈，空闲时尝试播放，已有其他音乐播放时不打断，朋友圈单页模式仅展示与引导，不保证试用版具备朋友圈入口权限
-- 个人列表点击歌曲构建单曲播放队列，不引入歌单或新的播放模式
-
-## 架构与身份隔离
-
-| 部分                               | 存放位置                      | 调用方式                                    |
-| ---------------------------------- | ----------------------------- | ------------------------------------------- |
-| 音乐详情、验证、临时音源与全局统计 | 原 FastAPI + SQLite           | wx.cloud.callContainer                      |
-| 用户、收藏、喜欢、搜索与播放历史   | 云开发文档集合 music_personal | wx.cloud.callFunction，函数名 personal      |
-| 头像                               | 同环境私有云存储              | wx.cloud.uploadFile，经云函数验证后写入资料 |
-| 游客记录与同步队列                 | 手机本机缓存                  | music.personal.v1                           |
-
-用户云函数、权限模板位于 miniprogram/cloudfunctions，音乐容器不携带这些文件，不改变容器的单实例、单 worker 约束
-
-云函数通过 cloud.getWXContext 取可信 APPID、OPENID 和 SOURCE，校验当前 AppID 与 wx_client 来源，拒绝请求中指定其他用户身份，不返回原始 OpenID；文档 ID 使用 AppID 与 OpenID 的 SHA-256 摘要
-
-只允许小程序客户端调用 personal，不配置 HTTP、公网、定时器、云函数转调或其他触发入口，防止复用实例中的调用上下文被混用；在控制台只检查日志和部署，不用模拟他人身份写入真实用户数据
-
-每个用户的数据放在一份事务文档中，避免跨集合事务和全表扫描，带请求限速、幂等事件 ID、更新版本及历史清理版本；文档上限 700 KiB，达到容量上限会明确拒绝，不静默删除收藏
-
-头像仅接受本人摘要目录内的云文件 ID，客户端上传前校验 2 MiB，服务端读取验证同样限制 2 MiB、8 秒、不跟随重定向，识别 JPEG／PNG／WebP 文件头，不将用户提供的任意 HTTP 地址交给下载器
-
-## 部署前检查
-
-当前标识：小程序 wxe1af0ed55ed257b7，音乐云托管 prod-d1ghaho8i283f4b26，服务 music
-
-1. 在云开发控制台核实该环境是否同时支持文档数据库、云函数、云存储，以及是否已关联当前小程序 AppID，只有音乐云托管可用并不代表另外三项资源已经开通
-2. 核对资源套餐、余量、是否需要付费及所选运行时，不自动开通新资源，不修改计费或升配
-3. personal 使用支持 structuredClone 的 Node.js 18 或以上运行时，执行超时在控制台设为 20 秒，云函数仅开放小程序调用，不新增公网入口
-4. 若环境不具备文档数据库事务或所需资源，先停止云端部署并报告，不用 SQLite、临时文件或模拟登录替代云端持久化验收
-5. 不粘贴上传私钥、浏览器 Cookie 或云账号长期密钥到代码、日志、聊天及 Git，已有小程序上传私钥不等于云资源管理权限
-
-## 部署步骤
-
-### 1、部署稳定歌曲恢复接口
-
-更新现有 music 云托管服务，增加 POST /api/miniprogram/songs/restore，没有新增用户 SQLite 表，启动时应用增量迁移 0004，为自动分享播放增加延迟点击标记，旧会话默认关闭该标记
-
-请求只含 source、source_track_id、query_hint，返回 status、song、message，只有 available 返回可播放歌曲，接口不返回临时音源，也不创建播放会话；自动分享播放使用 defer_click，仅在实际 started 后幂等计点击与播放，原有手动点击与 Web 统计不变
-
-SQLite 缺失时复用有界检索任务，从标题提示的官方检索结果中仅选准确平台 ID，查不到就提示暂不可恢复，不用同名歌曲冒充，不信任客户端历史中的时长或“完整版”标记；当前恢复检索只查第一页 20 条候选，因此并不保证被平台搜索下架的歌曲仍能恢复
-
-### 2、建立文档集合与权限
-
-在已核实的云开发环境创建集合 music_personal，应用 [数据库规则](../miniprogram/cloudfunctions/database.rules.json)，read 和 write 均为 false，客户端不能直接读写，只由个人云函数使用服务端 SDK 访问
-
-不覆盖环境内其他集合的权限，不把整个数据库改成公开读写
-
-### 3、头像存储权限
-
-应用 [头像存储规则](../miniprogram/cloudfunctions/storage.rules.json)，仅文件创建者读取和修改，头像路径为 avatars/用户摘要/随机文件名.jpg，原始文件内容仍需服务端校验
-
-云存储安全规则可能作用于整个环境，若已有其他业务文件，先核对现有规则并合并头像路径权限，不盲目覆盖其他业务的公开文件规则，不将头像设置为所有人可读写
-
-资料更新被服务端明确拒绝时会尝试清理新文件，响应丢失或网络结果不明时保留新文件以免误删已经生效的头像，下次同步再核对；替换资料成功后尝试清理旧头像，异常遗留文件需在确认无引用后清理，不全量删除用户文件
-
-### 4、部署 personal 云函数
-
-开发者工具导入 miniprogram 工程，project.config.json 已声明 cloudfunctionRoot 为 cloudfunctions/，选择核实过的环境
-
-先在本机验证独立依赖锁文件：
-
-```powershell
-Set-Location 'E:\个人\agent\agent-codex\music\miniprogram\cloudfunctions\personal'
-npm ci --ignore-scripts
-npm audit
+```text
+sh-cynosdbmysql-grp-av8hrd0w.sql.tencentcdb.com:27432
 ```
 
-personal 目录包含 index.js、core.js、image.js、package.json、package-lock.json 和 config.json，开发者工具执行上传并部署，云端安装依赖；若工具重新解析了锁定版本，需再次核对实际安装清单
+生产地址：
 
-不要仅上传 index.js，不要将云函数文件放入 dist 或音乐容器镜像，云端函数名必须为 personal
+```text
+10.17.106.21:3306
+```
 
-### 5、构建和上传原生开发版
+生产环境变量只使用内网地址：
+
+```env
+MUSIC_DATABASE_URL=mysql+asyncmy://music:密码@10.17.106.21:3306/music?charset=utf8mb4
+MUSIC_AUTO_MIGRATE=false
+MUSIC_WECHAT_APP_ID=wxe1af0ed55ed257b7
+```
+
+密码不写入 Git、镜像、日志或小程序代码，公网测试完成后关闭公网访问或收紧数据库白名单
+
+## 账号权限
+
+运行账号 `music` 只保留：
+
+```text
+SELECT INSERT UPDATE DELETE
+```
+
+初始化与升级账号 `music_migrate` 使用：
+
+```text
+SELECT INSERT UPDATE DELETE CREATE ALTER INDEX REFERENCES DROP
+```
+
+不授予 `ALL PRIVILEGES`、`GRANT OPTION`、`CREATE USER`、`FILE`、`PROCESS`、`SUPER`、复制、事件、触发器和存储过程权限
+
+生产应用只使用 `music`，执行 `alembic upgrade head` 时临时使用 `music_migrate`
+
+## 初始化数据库
+
+当前没有线上业务数据，不执行 SQLite 或云数据库数据导入，直接初始化 MySQL 空库
 
 ```powershell
+$env:MUSIC_MIGRATION_DATABASE_URL = 'mysql+asyncmy://music_migrate:密码@sh-cynosdbmysql-grp-av8hrd0w.sql.tencentcdb.com:27432/music?charset=utf8mb4'
+uv run alembic upgrade head
+```
+
+生产执行时将连接地址换为：
+
+```text
+mysql+asyncmy://music_migrate:密码@10.17.106.21:3306/music?charset=utf8mb4
+```
+
+初始化后应存在：
+
+```text
+songs
+song_stats
+audio_links
+playback_sessions
+provider_cache
+users
+user_marks
+user_history
+user_history_state
+user_operations
+alembic_version
+```
+
+## FastAPI 个人接口
+
+小程序个人数据统一调用：
+
+```text
+POST /api/miniprogram/personal
+```
+
+请求体使用 action 和 data，支持：
+
+| action | 用途 |
+| --- | --- |
+| profile.get | 获取当前用户资料和收藏状态 |
+| profile.enable | 创建个人空间 |
+| mark.set | 设置收藏或喜欢 |
+| history.sync | 同步搜索历史和最近播放 |
+| avatar.set | 将头像 Base64 写入 MySQL |
+| avatar.get | 读取当前用户头像 |
+
+服务端校验微信云调用请求头：
+
+- `X-WX-APPID` 必须匹配 `wxe1af0ed55ed257b7`
+- `X-WX-OPENID` 必须存在
+- `X-WX-SOURCE` 必须为允许的小程序调用来源
+- 请求体不能指定其他用户的 OpenID、用户 ID 或用户摘要
+
+用户身份只保存 AppID 和 OpenID 的 SHA-256 摘要，不保存原始 OpenID
+
+## 头像规则
+
+- 最大 2 MiB
+- 只接受 JPEG、PNG、WebP
+- 服务端检查文件头和 SHA-256
+- 写入 MySQL `users.avatar_blob`，类型为 `MEDIUMBLOB`
+- 不使用 `wx.cloud.uploadFile`
+- 不记录头像内容日志
+- 头像只能由当前微信用户读取
+
+头像接口使用专用请求体限制，普通接口仍保持原有资源限制，头像上传失败不会影响搜索和播放
+
+## Docker 与云托管
+
+Docker 只构建 Python 后端：
+
+- 不安装 Node
+- 不构建 Web 前端
+- 不复制 `frontend/dist`
+- 不创建 SQLite 数据目录
+- 使用单 worker、单实例
+- 监听端口 `80`
+- 生产设置 `MUSIC_AUTO_MIGRATE=false`
+
+部署顺序：
+
+1. 确认云托管和 MySQL 位于同一 VPC
+2. 为 MySQL 配置 VPC 白名单
+3. 使用 `music_migrate` 执行 `alembic upgrade head`
+4. 设置 FastAPI 使用生产内网地址和 `music` 账号
+5. 部署 FastAPI 服务并检查 `/api/health`
+6. 确认关闭公网访问后小程序仍能通过 `callContainer` 调用
+7. 构建并上传小程序开发版
+8. 使用两个微信账号验证收藏、喜欢、历史、头像和播放
+
+## 本地测试
+
+```powershell
+Set-Location 'E:\个人\agent\agent-codex\music'
+$env:MUSIC_DATABASE_URL = 'mysql+asyncmy://music:密码@sh-cynosdbmysql-grp-av8hrd0w.sql.tencentcdb.com:27432/music?charset=utf8mb4'
+uv run alembic upgrade head
+.\.venv\Scripts\python.exe -m pytest -q
+
 Set-Location 'E:\个人\agent\agent-codex\music\miniprogram'
-npm ci
 npm test
-$env:WECHAT_UPLOAD_KEY_PATH = '仓库外的微信上传私钥绝对路径'
-npm run upload
 ```
 
-仅上传开发版，不自动提审或发布，体验入口为 pages/home/index，小程序上传成功不表示个人云函数和数据库已经部署成功
+公网测试完成后不要把公网连接串复制到生产环境，生产只使用 `10.17.106.21:3306`
 
-### 6、隐私与实际联调
+## 验收边界
 
-在小程序管理后台按照实际功能补充头像、微信身份关联及搜索／播放历史的用途说明，头像由用户主动选择，不把个人空间启用确认当成已完成平台全部隐私配置
+本次不做旧 SQLite 数据导出、不做旧云数据库数据导出、不做双写、不做 Web 部署、不提交审核或发布正式版
 
-分别用两个真实微信账号从小程序客户端启用个人空间，检查数据库文档、头像权限及个人数据隔离；重新部署音乐容器后收藏和历史应仍在
-
-## 云函数操作与同步
-
-所有个人操作由可信调用上下文确定归属，业务 data 不接受 OpenID 或用户 ID，不在日志中输出完整个人历史
-
-| action         | data                    | 行为                                            |
-| -------------- | ----------------------- | ----------------------------------------------- |
-| profile.get    | 空对象                  | 读取当前用户，未启用不创建文档                  |
-| profile.enable | 空对象                  | 确认后启用个人空间，重复调用复用                |
-| avatar.set     | fileID                  | 验证本人头像并更新资料                          |
-| mark.set       | kind、value、song、opId | 独立设置 favorite／like，value 是目标布尔值     |
-| history.sync   | kind、epoch、ops        | search／recent 的有界增量同步，同时读取最新记录 |
-
-历史操作为 put、remove、clear，批次不超过 120 项，清理版本不匹配时拒绝旧批次并返回最新状态；客户端不会把旧新增项自动迁移到新的清理版本，删除与清空保留明确同步错误，不因失败伪报成功
-
-返回 ok 和 data，失败返回 ok=false 及 error.code、error.message，前端不输出 SDK 原始异常或凭据
-
-## 备份、依赖风险与验收边界
-
-- SQLite 继续只承担可重新采集的音乐详情与会话，用户文档和头像需要独立备份
-- 使用云控制台导出 music_personal 和所引用的头像文件，备份属于个人数据，存放在私有位置，不提交 Git
-- 恢复时保留文档 ID、稳定歌曲标识、清理版本和幂等记录，不将旧备份随意覆盖到正在运行的集合，否则可能复活用户已删除的历史
-- wx-server-sdk 固定 4.0.2，独立锁文件 audit 当前报告 6 项传递依赖告警，其中 5 项 high、1 项 moderate，涉及官方依赖中的 axios、lodash.set、lodash.unset，不使用 npm audit fix --force 强制降级 SDK，也未把未知兼容性的主版本替换当成修复
-- 这些告警必须纳入云端上线前评估，现有输入白名单和固定数据库字段不能等同于全部依赖风险消除，不宣称此版本已满足生产安全验收
-- 本机测试不代表已验证真实 OpenID、云端事务、头像规则或朋友圈权限，云资源未部署、权限不足和真机限制应分别记录，不用模拟数据宣称验收通过
-
-真机清单：两个账号隔离、头像更换、独立收藏／喜欢、跨设备同步、失败播放不入最近记录、锁屏自动连播记录、离线后同步、旧设备不能复活清空历史、分享保护当前播放、朋友圈受限引导、音乐容器重建后记录仍在
+需要分别确认：源码测试通过、MySQL 空库初始化成功、云托管内网连接成功、小程序开发版上传成功、两个真实微信账号验收通过

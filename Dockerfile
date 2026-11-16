@@ -1,16 +1,6 @@
-# Use Docker Official Images on ECR Public, bypassing Docker Hub mirror failures
-# Override only with trusted, version-compatible images via Docker build arguments
-ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-bookworm-slim
 ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim-bookworm
 
-FROM ${NODE_IMAGE} AS frontend-build
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
-COPY frontend/ ./
-RUN npm run build
-
-FROM ${PYTHON_IMAGE} AS runtime
+FROM public.ecr.aws/docker/library/python:3.13-slim-bookworm AS runtime
 LABEL org.opencontainers.image.authors="DataShare"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -30,22 +20,17 @@ COPY migrations/ ./migrations/
 COPY src/ ./src/
 RUN uv sync --locked --no-dev --no-cache
 
-COPY --from=frontend-build /app/frontend/dist ./frontend/dist
-RUN mkdir -p /app/data \
-    && useradd --create-home --uid 10001 app \
+RUN useradd --create-home --uid 10001 app \
     && chown -R app:app /app \
     && setcap cap_net_bind_service=+ep "$(readlink -f /app/.venv/bin/python)"
 
 ENV PORT=80 \
-    MUSIC_DATABASE_URL=sqlite+aiosqlite:///data/music.db \
-    MUSIC_CATALOG_TARGET=100 \
-    MUSIC_PROVIDER_CONCURRENCY=2 \
-    MUSIC_FULL_AUDIO_VERIFY_CONCURRENCY=1
+    MUSIC_DATABASE_URL=mysql+asyncmy://music:REPLACE_IN_CLOUD_CONSOLE@10.17.106.21:3306/music?charset=utf8mb4 \
+    MUSIC_AUTO_MIGRATE=false \
+    MUSIC_WECHAT_APP_ID=wxe1af0ed55ed257b7
 
-# Grant only low-port binding to Python; the application still runs as UID 10001
 USER app
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD ["/app/.venv/bin/python", "-m", "music.healthcheck"]
-# Use the preinstalled environment directly, without syncing dependencies at startup
 CMD ["sh","-c","exec /app/.venv/bin/uvicorn music.app:app --host 0.0.0.0 --port \"${PORT:-80}\" --workers 1 --no-proxy-headers"]

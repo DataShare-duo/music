@@ -28,7 +28,10 @@ Page({
         }),
       ) || null;
     if (this.store && !this.store.data.active) void this.enable();
-    else void this.store?.sync();
+    else {
+      void this.store?.sync();
+      void this.store?.loadAvatar();
+    }
   },
   onHide() {
     this.unsubscribe?.();

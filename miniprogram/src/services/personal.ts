@@ -1,5 +1,5 @@
 import { Song } from "../types";
-import { config } from "../config";
+import { api } from "./api";
 import { newRequestId } from "./api";
 export type SavedSong = Pick<
   Song,
@@ -94,30 +94,25 @@ export async function callPersonal(
   action: string,
   data: object = {},
 ): Promise<CloudView> {
-  let response;
   try {
-    response = await wx.cloud.callFunction({
-      name: "personal",
-      config: { env: config.env },
-      data: { action, data },
-    });
-  } catch {
+    const result = await api.post<{
+      ok: boolean;
+      data: CloudView;
+      error?: { code: string; message: string };
+    }>("/api/miniprogram/personal", { action, data });
+    if (!result?.ok)
+      throw new PersonalError(
+        result?.error?.code || "personal_unavailable",
+        result?.error?.message || "个人服务返回异常",
+      );
+    return result.data;
+  } catch (e) {
+    if (e instanceof PersonalError) throw e;
     throw new PersonalError(
       "personal_unavailable",
-      "个人服务暂不可用，请检查云函数部署，听歌不受影响",
+      e instanceof Error ? e.message : "个人服务暂不可用，听歌不受影响",
     );
   }
-  const result = response.result as {
-    ok: boolean;
-    data: CloudView;
-    error?: { code: string; message: string };
-  };
-  if (!result?.ok)
-    throw new PersonalError(
-      result?.error?.code || "personal_unavailable",
-      result?.error?.message || "个人服务返回异常",
-    );
-  return result.data;
 }
 export class PersonalStore {
   data: PersonalData = fresh();
@@ -189,7 +184,7 @@ export class PersonalStore {
     this.data.revision = view.revision;
     this.data.active = view.active;
     this.data.userKey = view.userKey;
-    this.data.avatar = view.avatar;
+    if (view.avatar) this.data.avatar = view.avatar;
     this.data.favorite = view.favorite;
     this.data.like = view.like;
   }
@@ -400,9 +395,19 @@ export class PersonalStore {
       this.markBusy.delete(key);
     }
   }
+  async loadAvatar() {
+    if (!this.data.active) return;
+    try {
+      const view = await this.call("avatar.get");
+      this.data.avatar = view.avatar || "";
+      this.data.error = "";
+      this.emit();
+    } catch (e) {
+      this.error(e);
+    }
+  }
   async setAvatar(path: string) {
     if (!(await this.enable())) return;
-    let fileID = "";
     try {
       const info = await new Promise<{ size: number }>((resolve, reject) =>
         wx
@@ -410,31 +415,23 @@ export class PersonalStore {
           .getFileInfo({ filePath: path, success: resolve, fail: reject }),
       );
       if (info.size > 2 * 1024 * 1024) throw new Error("头像不能超过2 MiB");
-      const upload = await wx.cloud.uploadFile({
-        cloudPath:
-          "avatars/" + this.data.userKey + "/" + (await this.id()) + ".jpg",
-        filePath: path,
+      const file = await new Promise<{ data: string }>((resolve, reject) =>
+        wx.getFileSystemManager().readFile({
+          filePath: path,
+          encoding: "base64",
+          success: (result) => resolve({ data: String(result.data) }),
+          fail: reject,
+        }),
+      );
+      const view = await this.call("avatar.set", {
+        base64: file.data,
+        mime: "image/jpeg",
       });
-      fileID = upload.fileID;
-      const view = await this.call("avatar.set", { fileID });
       this.profile(view);
       this.data.error = "";
       this.emit();
+      await this.loadAvatar();
     } catch (e) {
-      // A lost response may mean the new avatar was committed: never delete it blindly.
-      if (
-        fileID &&
-        e instanceof PersonalError &&
-        [
-          "invalid_avatar",
-          "rate_limited",
-          "profile_required",
-          "invalid_input",
-          "invalid_identity",
-          "unauthenticated",
-        ].includes(e.code)
-      )
-        void wx.cloud.deleteFile({ fileList: [fileID] }).catch(() => {});
       this.error(e);
       throw e;
     }

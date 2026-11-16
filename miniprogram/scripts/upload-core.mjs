@@ -221,7 +221,7 @@ export async function uploadValidated(ci, config) {
   await ci.upload({
     project,
     version: config.version,
-    desc: "DataShare 听见个人空间与分享开发版 · " + config.commit,
+    desc: "DataShare 听见 MySQL 个人空间开发版 · " + config.commit,
     robot: config.robot,
     setting: { es6: true, minify: true },
     onProgressUpdate: () => {},
@@ -232,7 +232,7 @@ export async function uploadValidated(ci, config) {
     version: config.version,
     commit: config.commit,
     robot: config.robot,
-    stage: "native-personal",
+    stage: "native-mysql",
     entryPagePath: "pages/home/index",
     devicePlaybackVerified: false,
     reviewSubmitted: false,

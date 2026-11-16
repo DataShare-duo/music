@@ -28,7 +28,7 @@ services:
       - key: MUSIC_STREAM_MAX_SECONDS
         value: '900'
       - key: MUSIC_DATABASE_URL
-        value: 'sqlite+aiosqlite:///data/music.db'
+        value: 'mysql+asyncmy://music:REPLACE_IN_RENDER@MYSQL_HOST:3306/music?charset=utf8mb4'
       - key: MUSIC_NETWORK_TIMEOUT
         value: '12'
       - key: MUSIC_PROVIDER_CONCURRENCY
@@ -51,3 +51,7 @@ services:
         value: '60'
       - key: MUSIC_PLAYBACK_TTL
         value: '7200'
+      - key: MUSIC_AUTO_MIGRATE
+        value: 'false'
+      - key: MUSIC_WECHAT_APP_ID
+        value: 'wxe1af0ed55ed257b7'

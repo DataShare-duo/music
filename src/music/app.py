@@ -7,7 +7,7 @@ from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from music import __author__
@@ -20,6 +20,7 @@ from music.core.errors import AppError, error_handler
 from music.core.lyrics import LyricsService
 from music.core.streaming import AudioProxy
 from music.db.session import Database
+from music.personal import PersonalService
 from music.providers.official import ProviderManager
 from music.service import MusicService
 
@@ -31,10 +32,14 @@ def migrate(url):
     command.upgrade(config, "head")
 
 
-def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True, probe=None):
+def create_app(settings=None, providers=None, proxy=None, migrate_on_start=None, probe=None):
     logging.getLogger("httpx").setLevel(logging.WARNING)
     settings = settings or Settings()
-    db = Database(settings.database_url)
+    if migrate_on_start is None:
+        migrate_on_start = settings.auto_migrate
+    db = Database(
+        settings.database_url, tls=settings.database_tls, ca_file=settings.database_ca_file
+    )
     audio_proxy = proxy or AudioProxy(settings.network_timeout)
     service = MusicService(
         db,
@@ -59,11 +64,13 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True,
 
     app = FastAPI(
         title="听见 · 个人音乐空间",
-        version="0.1.0",
+        version="0.5.0",
         contact={"name": __author__, "url": "https://github.com/DataShare-duo/music"},
         lifespan=lifespan,
     )
     app.state.db, app.state.service = db, service
+    app.state.settings = settings
+    app.state.personal = PersonalService(db)
     app.state.proxy = audio_proxy
     app.state.lyrics = LyricsService(service)
     app.add_middleware(
@@ -118,24 +125,6 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=True,
 
     app.include_router(router)
     app.include_router(native_router)
-
-    @app.get("/{path:path}", include_in_schema=False)
-    async def frontend(path: str):
-        if path == "api" or path.startswith("api/"):
-            raise AppError("not_found", "接口不存在", 404)
-        root = settings.frontend_dist.resolve()
-        target = (root / path).resolve()
-        if not target.is_relative_to(root):
-            raise AppError("not_found", "页面不存在", 404)
-        if target.is_file():
-            return FileResponse(target)
-        if (root / "index.html").is_file() and "." not in path.rsplit("/", 1)[-1]:
-            return FileResponse(root / "index.html", headers={"Cache-Control": "no-cache"})
-        raise AppError(
-            "frontend_not_built",
-            "前端尚未构建，请先运行 npm run build，开发模式请访问 5173 端口",
-            404,
-        )
 
     return app
 
