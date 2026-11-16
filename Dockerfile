@@ -18,7 +18,9 @@ COPY pyproject.toml uv.lock README.md .env.example THIRD_PARTY_LICENSE_MUSICDL.t
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
 COPY src/ ./src/
-RUN uv sync --locked --no-dev --no-cache
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+RUN uv sync --locked --no-dev --no-cache \
+    && /app/.venv/bin/python -c "import asyncmy; print('asyncmy runtime dependency ready')"
 
 RUN useradd --create-home --uid 10001 app \
     && chown -R app:app /app \
