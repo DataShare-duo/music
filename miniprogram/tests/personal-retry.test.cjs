@@ -24,6 +24,7 @@ test("inactive personal space retries enabling, active space retries syncing and
     data: { active: false },
     enable: async () => { enabled++; return true; },
     sync: async () => { synced++; },
+    loadAvatar: async () => {},
   };
   page.retry();
   await flush();

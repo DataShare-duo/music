@@ -1,10 +1,49 @@
-
 <view class="music-page mine-page">
- <text class="eyebrow">YOUR MUSIC SPACE</text><text class="section-title">我的音乐空间</text>
- <view class="profile-card"><button class="profile-avatar" open-type="chooseAvatar" bindchooseavatar="chooseAvatar" disabled="{{!active || busy}}" aria-label="选择个人头像"><image wx:if="{{avatar}}" src="{{avatar}}" mode="aspectFill"/><view wx:else class="avatar-person"/></button><view><text class="profile-name">{{active ? '微信用户' : '开启你的音乐空间'}}</text><text class="hint">{{active ? '点击头像可更换，不需要手机号' : '收藏心动，留下听过的旋律'}}</text></view></view>
- <button wx:if="{{!active}}" class="primary" bindtap="enable" disabled="{{busy}}">{{busy ? '正在开启…' : '启用个人空间'}}</button>
- <view class="personal-menu"><button data-kind="favorite" bindtap="openList"><text>我的收藏</text><text class="menu-count">{{favoriteCount}}　›</text></button><button data-kind="like" bindtap="openList"><text>我喜欢的</text><text class="menu-count">{{likeCount}}　›</text></button><button data-kind="recent" bindtap="openList"><text>最近播放</text><text class="menu-count">{{recentCount}}　›</text></button></view>
- <view wx:if="{{error}}" class="error-box"><text>{{error}}</text><button class="retry" bindtap="retry" disabled="{{busy}}">{{active ? '重试同步' : '重试启用'}}</button></view>
- <text class="hint">未启用时，搜索和播放历史仅保存在本机，启用后与云端合并，清理过的云端历史优先</text>
- <view class="personal-menu"><button bindtap="about">关于听见 <text>›</text></button><button bindtap="diagnostics">服务检查与播放事件 <text>›</text></button></view>
-</view><player-bar/>
+  <text class="eyebrow">YOUR MUSIC SPACE</text>
+  <text class="section-title">我的音乐空间</text>
+  <view class="profile-card">
+    <view class="avatar-wrap">
+      <button class="profile-avatar" open-type="chooseAvatar" bindchooseavatar="chooseAvatar" disabled="{{busy}}" aria-label="选择个人头像">
+        <image wx:if="{{avatar && !avatarBroken}}" src="{{avatar}}" mode="aspectFill" binderror="avatarFailed"/>
+        <view wx:else class="avatar-person"/>
+      </button>
+      <view class="avatar-edit-mark" aria-hidden="true"><view class="avatar-edit-pencil"/></view>
+    </view>
+    <view class="profile-copy">
+      <text class="profile-name">{{active ? '微信用户' : '开启你的音乐空间'}}</text>
+      <text class="profile-description">{{avatar && !avatarBroken ? '你的音乐，你的模样' : '选择一次头像，下次自动显示'}}</text>
+      <button class="avatar-setting" open-type="chooseAvatar" bindchooseavatar="chooseAvatar" disabled="{{busy}}">{{busy ? '正在保存…' : (avatar && !avatarBroken ? '更换头像' : '选择头像')}}</button>
+    </view>
+  </view>
+  <text wx:if="{{!avatar || avatarBroken}}" class="avatar-guidance">微信头像需要你主动选择，不会随微信身份自动获取</text>
+  <button wx:if="{{!active}}" class="primary enable-space" bindtap="enable" disabled="{{busy}}">{{busy ? '正在开启…' : '启用个人空间'}}</button>
+  <view wx:if="{{error}}" class="error-box"><text>{{error}}</text><button class="retry" bindtap="retry" disabled="{{busy}}">{{active ? '重试同步' : '重试启用'}}</button></view>
+  <text class="space-status">{{active ? '个人空间已启用 · 收藏与记录支持云端同步' : '访客模式 · 最近播放保存在本机，启用后同步到云端'}}</text>
+
+  <view class="mine-tabs" aria-role="tablist" aria-label="个人歌曲分类">
+    <button class="mine-tab {{kind === 'favorite' ? 'mine-tab-active' : ''}}" data-kind="favorite" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'favorite'}}" aria-controls="mine-song-panel"><text>收藏</text><text class="tab-count">{{favoriteCount}}</text></button>
+    <button class="mine-tab {{kind === 'like' ? 'mine-tab-active' : ''}}" data-kind="like" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'like'}}" aria-controls="mine-song-panel"><text>喜欢</text><text class="tab-count">{{likeCount}}</text></button>
+    <button class="mine-tab {{kind === 'recent' ? 'mine-tab-active' : ''}}" data-kind="recent" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'recent'}}" aria-controls="mine-song-panel"><text>最近播放</text><text class="tab-count">{{recentCount}}</text></button>
+  </view>
+  <view id="mine-song-panel" class="mine-panel" aria-role="tabpanel">
+    <view class="mine-list-head"><text>{{kind === 'favorite' ? '收藏的旋律' : (kind === 'like' ? '心动的声音' : '最近听过')}}<text class="list-total"> · {{total}} 首</text></text><button wx:if="{{kind === 'recent' && total}}" class="history-clear" bindtap="clearRecent">清空记录</button></view>
+    <text wx:if="{{message}}" class="library-message">{{message}}</text>
+    <view wx:if="{{!items.length}}" class="mine-empty">
+      <view class="empty-note" aria-hidden="true"><view/><view/></view>
+      <text class="mine-empty-title">{{kind === 'favorite' ? '把好音乐留在这里' : (kind === 'like' ? '等待让你心动的旋律' : '让一首歌，开启今天')}}</text>
+      <text class="mine-empty-copy">{{kind === 'favorite' ? '在全屏播放器点亮星星，随时重听' : (kind === 'like' ? '在全屏播放器点亮爱心，记录你的喜欢' : '真正开始播放的歌曲，会自动记录在这里')}}</text>
+    </view>
+    <view wx:else class="mine-song-list">
+      <view wx:for="{{items}}" wx:key="key" class="mine-song-row">
+        <view class="mine-song-target" data-key="{{item.key}}" bindtap="play" aria-role="button" aria-label="播放 {{item.song.title}}">
+          <view class="mine-cover"><cover-art url="{{item.song.cover_url}}" title="{{item.song.title}}"/></view>
+          <view class="mine-song-copy"><text class="mine-song-title">{{item.song.title}}</text><text class="mine-song-artist">{{item.song.artist}}</text><view class="mine-song-meta"><text class="mine-source">{{item.sourceLabel}}</text><text wx:if="{{kind !== 'recent' && item.song.album}}" class="mine-album">{{item.song.album}}</text></view><text wx:if="{{kind === 'recent'}}" class="mine-played-time">{{item.timeText}}</text><text wx:if="{{item.availability}}" class="mine-unavailable">{{item.availability}}</text></view>
+        </view>
+        <button class="mine-remove" data-key="{{item.key}}" catchtap="remove" aria-label="{{kind === 'recent' ? '删除播放记录' : '取消标记'}} {{item.song.title}}">{{kind === 'recent' ? '删除' : '取消'}}</button>
+      </view>
+    </view>
+    <view wx:if="{{pages > 1}}" class="pagination mine-pagination"><button class="page-button" disabled="{{page <= 1}}" bindtap="previous">上一页</button><view class="page-indicator"><text class="page-current">{{page}}</text><text> / {{pages}}</text></view><button class="page-button page-button-next" disabled="{{!hasMore}}" bindtap="next">下一页</button></view>
+  </view>
+  <view class="mine-tools"><button bindtap="about"><text>关于听见</text><text>›</text></button><button bindtap="diagnostics"><text>服务检查与播放事件</text><text>›</text></button></view>
+</view>
+<player-bar/>

@@ -39,7 +39,7 @@ App({
     openHome();
   },
   onShow() {
-    void this.personal?.sync();
+    void this.personal?.sync().then(() => this.personal?.loadAvatar());
     if (this.personalTimer) clearInterval(this.personalTimer);
     this.personalTimer = setInterval(() => {
       void this.personal?.sync();

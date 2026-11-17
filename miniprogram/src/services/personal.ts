@@ -1,6 +1,7 @@
 import { Song } from "../types";
 import { api, ApiError } from "./api";
 import { newRequestId } from "./api";
+import { avatarMime, avatarFile, removeAvatarFile } from "./avatar";
 export type SavedSong = Pick<
   Song,
   | "source"
@@ -123,6 +124,8 @@ export class PersonalStore {
   private markBusy = new Set<string>();
   private markedSession = "";
   private operationChain: Promise<void> = Promise.resolve();
+  private avatarGeneration = 0;
+  private avatarLoading: { owner: string; promise: Promise<void> } | null = null;
   constructor(
     private call = callPersonal,
     private id = newRequestId,
@@ -149,6 +152,8 @@ export class PersonalStore {
         Array.isArray(x.like)
       ) {
         this.data = x;
+        // Never put a full base64 avatar back into native page data.
+        if (this.data.avatar.startsWith("data:")) this.data.avatar = "";
         this.data.error = "";
         this.data.favorite = x.favorite.slice(0, 200);
         this.data.like = x.like.slice(0, 200);
@@ -178,13 +183,15 @@ export class PersonalStore {
   }
   private profile(view: CloudView) {
     if (this.data.userKey && this.data.userKey !== view.userKey) {
+      ++this.avatarGeneration;
+      void removeAvatarFile(this.data.avatar);
       this.data = fresh();
     }
     if (view.active && view.revision < this.data.revision) return;
     this.data.revision = view.revision;
     this.data.active = view.active;
     this.data.userKey = view.userKey;
-    if (view.avatar) this.data.avatar = view.avatar;
+    // Avatar bytes are converted into a local file by loadAvatar.
     this.data.favorite = view.favorite;
     this.data.like = view.like;
   }
@@ -205,6 +212,7 @@ export class PersonalStore {
         this.data.error = "";
         this.emit();
         await this.sync();
+        await this.loadAvatar();
         return true;
       } catch (e) {
         this.error(e);
@@ -395,44 +403,67 @@ export class PersonalStore {
       this.markBusy.delete(key);
     }
   }
-  async loadAvatar() {
+  async loadAvatar(force = false): Promise<void> {
     if (!this.data.active) return;
+    const owner = this.data.userKey;
+    if (!force && this.avatarLoading?.owner === owner)
+      return this.avatarLoading.promise;
+    const generation = ++this.avatarGeneration;
+    const current = () => generation === this.avatarGeneration &&
+      this.data.active && this.data.userKey === owner;
+    const promise = (async () => {
+      try {
+        const view = await this.call("avatar.get");
+        if (!current()) return;
+        if (view.userKey !== owner) throw new Error("头像用户身份不匹配，请重新进入个人空间");
+        const file = view.avatar ? await avatarFile(view.avatar, owner) : "";
+        if (!current()) {
+          if (file) void removeAvatarFile(file);
+          return;
+        }
+        const previous = this.data.avatar;
+        this.data.avatar = file;
+        this.emit();
+        if (previous !== file) void removeAvatarFile(previous);
+      } catch (e) {
+        if (current()) this.error(e);
+      }
+    })();
+    const request = { owner, promise };
+    this.avatarLoading = request;
     try {
-      const view = await this.call("avatar.get");
-      this.data.avatar = view.avatar || "";
-      this.data.error = "";
-      this.emit();
-    } catch (e) {
-      this.error(e);
+      await promise;
+    } finally {
+      if (this.avatarLoading === request) this.avatarLoading = null;
     }
   }
   async setAvatar(path: string) {
     if (!(await this.enable())) return;
+    const owner = this.data.userKey;
+    ++this.avatarGeneration;
     try {
       const info = await new Promise<{ size: number }>((resolve, reject) =>
-        wx
-          .getFileSystemManager()
-          .getFileInfo({ filePath: path, success: resolve, fail: reject }),
+        wx.getFileSystemManager().getFileInfo({ filePath: path, success: resolve, fail: reject }),
       );
       if (info.size > 2 * 1024 * 1024) throw new Error("头像不能超过2 MiB");
       const file = await new Promise<{ data: string }>((resolve, reject) =>
         wx.getFileSystemManager().readFile({
-          filePath: path,
-          encoding: "base64",
-          success: (result) => resolve({ data: String(result.data) }),
-          fail: reject,
+          filePath: path, encoding: "base64",
+          success: (result) => resolve({ data: String(result.data) }), fail: reject,
         }),
       );
+      if (this.data.userKey !== owner) throw new Error("用户身份已变化，请重新选择头像");
       const view = await this.call("avatar.set", {
         base64: file.data,
-        mime: "image/jpeg",
+        mime: avatarMime(file.data),
       });
+      if (this.data.userKey !== owner || view.userKey !== owner) return;
       this.profile(view);
       this.data.error = "";
       this.emit();
-      await this.loadAvatar();
+      await this.loadAvatar(true);
     } catch (e) {
-      this.error(e);
+      if (this.data.userKey === owner) this.error(e);
       throw e;
     }
   }
