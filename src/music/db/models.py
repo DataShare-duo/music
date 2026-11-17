@@ -1,9 +1,8 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import (
     JSON,
     Boolean,
-    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -16,20 +15,7 @@ from sqlalchemy.dialects.mysql import MEDIUMBLOB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
-
-def now() -> datetime:
-    return datetime.now(UTC)
-
-
-class UTCDateTime(TypeDecorator):
-    impl = DateTime
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        return value.astimezone(UTC).replace(tzinfo=None) if value else value
-
-    def process_result_value(self, value, dialect):
-        return value.replace(tzinfo=UTC) if value else value
+from music.db.time import BeijingDateTime, BeijingTimeMixin, now
 
 
 class AvatarBlob(TypeDecorator):
@@ -56,7 +42,7 @@ class Base(DeclarativeBase):
         super().__init_subclass__(**kwargs)
 
 
-class Song(Base):
+class Song(BeijingTimeMixin, Base):
     __tablename__ = "songs"
     __table_args__ = (UniqueConstraint("source", "source_track_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -69,37 +55,37 @@ class Song(Base):
     duration: Mapped[float] = mapped_column(Float, default=0)
     recommended: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     verification_state: Mapped[str] = mapped_column(String(20), default="pending", index=True)
-    checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
-    next_check_at: Mapped[datetime | None] = mapped_column(UTCDateTime, index=True)
+    checked_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
+    next_check_at: Mapped[datetime | None] = mapped_column(BeijingDateTime, index=True)
     verification_error: Mapped[str | None] = mapped_column(Text)
     verified_track: Mapped[dict | None] = mapped_column(JSON)
     audio_duration: Mapped[float | None] = mapped_column(Float)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    created_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
 
 
-class SongStats(Base):
+class SongStats(BeijingTimeMixin, Base):
     __tablename__ = "song_stats"
     song_id: Mapped[int] = mapped_column(
         ForeignKey("songs.id", ondelete="CASCADE"), primary_key=True
     )
     click_count: Mapped[int] = mapped_column(Integer, default=0)
     listen_count: Mapped[int] = mapped_column(Integer, default=0)
-    first_clicked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
-    last_clicked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
-    first_listened_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
-    last_listened_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    first_clicked_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
+    last_clicked_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
+    first_listened_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
+    last_listened_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
 
 
-class AudioLink(Base):
+class AudioLink(BeijingTimeMixin, Base):
     __tablename__ = "audio_links"
     song_id: Mapped[int] = mapped_column(
         ForeignKey("songs.id", ondelete="CASCADE"), primary_key=True
     )
     url: Mapped[str] = mapped_column(Text)
     headers: Mapped[dict] = mapped_column(JSON, default=dict)
-    resolved_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
-    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    resolved_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
+    expires_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
     version: Mapped[int] = mapped_column(Integer, default=1)
     audio_kind: Mapped[str] = mapped_column(String(20), default="unknown")
     play_source: Mapped[str | None] = mapped_column(String(20))
@@ -108,7 +94,7 @@ class AudioLink(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
 
 
-class Playback(Base):
+class Playback(BeijingTimeMixin, Base):
     __tablename__ = "playback_sessions"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     song_id: Mapped[int] = mapped_column(ForeignKey("songs.id", ondelete="CASCADE"), index=True)
@@ -125,35 +111,35 @@ class Playback(Base):
     audio_duration: Mapped[float | None] = mapped_column(Float)
     audio_url: Mapped[str | None] = mapped_column(Text)
     audio_headers: Mapped[dict | None] = mapped_column(JSON)
-    audio_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    audio_expires_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
     error_code: Mapped[str | None] = mapped_column(String(60))
     error_message: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
-    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
+    expires_at: Mapped[datetime] = mapped_column(BeijingDateTime)
 
 
-class ProviderCache(Base):
+class ProviderCache(BeijingTimeMixin, Base):
     __tablename__ = "provider_cache"
     key: Mapped[str] = mapped_column(String(300), primary_key=True)
     value: Mapped[dict] = mapped_column(JSON, default=dict)
-    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    expires_at: Mapped[datetime] = mapped_column(BeijingDateTime)
+    updated_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
 
 
-class User(Base):
+class User(BeijingTimeMixin, Base):
     __tablename__ = "users"
     user_key: Mapped[str] = mapped_column(String(64), primary_key=True)
     app_id: Mapped[str] = mapped_column(String(64))
     avatar_blob: Mapped[bytes | None] = mapped_column(AvatarBlob())
     avatar_mime: Mapped[str | None] = mapped_column(String(40))
     avatar_sha256: Mapped[str | None] = mapped_column(String(64))
-    avatar_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    avatar_updated_at: Mapped[datetime | None] = mapped_column(BeijingDateTime)
     revision: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    created_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
 
 
-class UserMark(Base):
+class UserMark(BeijingTimeMixin, Base):
     __tablename__ = "user_marks"
     __table_args__ = (UniqueConstraint("user_key", "kind", "source", "source_track_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -168,8 +154,8 @@ class UserMark(Base):
     album: Mapped[str] = mapped_column(String(500), default="")
     cover_url: Mapped[str] = mapped_column(Text, default="")
     duration: Mapped[float] = mapped_column(Float, default=0)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    created_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)
 
 
 class UserHistoryState(Base):
@@ -183,7 +169,7 @@ class UserHistoryState(Base):
     epoch: Mapped[int] = mapped_column(Integer, default=0)
 
 
-class UserHistory(Base):
+class UserHistory(BeijingTimeMixin, Base):
     __tablename__ = "user_history"
     __table_args__ = (UniqueConstraint("user_key", "kind", "history_key"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -201,10 +187,10 @@ class UserHistory(Base):
     cover_url: Mapped[str | None] = mapped_column(Text)
     duration: Mapped[float | None] = mapped_column(Float)
     source_name: Mapped[str | None] = mapped_column(String(80))
-    happened_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now, index=True)
+    happened_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now, index=True)
 
 
-class UserOperation(Base):
+class UserOperation(BeijingTimeMixin, Base):
     __tablename__ = "user_operations"
     __table_args__ = (UniqueConstraint("user_key", "operation_id"),)
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -213,4 +199,4 @@ class UserOperation(Base):
     )
     operation_id: Mapped[str] = mapped_column(String(100))
     kind: Mapped[str] = mapped_column(String(20))
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=now)
+    created_at: Mapped[datetime] = mapped_column(BeijingDateTime, default=now)

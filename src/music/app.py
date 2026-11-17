@@ -55,8 +55,9 @@ def create_app(settings=None, providers=None, proxy=None, migrate_on_start=None,
     async def lifespan(app):
         if migrate_on_start:
             await asyncio.to_thread(migrate, settings.database_url)
-        await service.start()
         try:
+            await db.check_time_schema()
+            await service.start()
             yield
         finally:
             await service.close()

@@ -14,6 +14,7 @@ from music.core.errors import AppError
 from music.core.limits import busy
 from music.core.verification import FullAudioUnavailable
 from music.db.models import AudioLink, Playback, Song, SongStats, now
+from music.db.time import first_time, mark_times
 from music.providers.official import SOURCE_NAMES, Track
 from music.schemas.api import NativePlaybackView, PlaybackView, SongList
 
@@ -293,10 +294,21 @@ class MusicService(CatalogService):
                     await db.execute(
                         update(SongStats)
                         .where(SongStats.song_id == song_id)
-                        .values(
-                            click_count=SongStats.click_count + 1,
-                            first_clicked_at=func.coalesce(SongStats.first_clicked_at, now()),
-                            last_clicked_at=now(),
+                        .ordered_values(
+                            (
+                                "time_storage_mask",
+                                mark_times(
+                                    SongStats,
+                                    "last_clicked_at",
+                                    first_if_null=("first_clicked_at",),
+                                ),
+                            ),
+                            ("click_count", SongStats.click_count + 1),
+                            (
+                                "first_clicked_at",
+                                first_time(SongStats.first_clicked_at, now()),
+                            ),
+                            ("last_clicked_at", now()),
                         )
                     )
                 await db.commit()
@@ -462,17 +474,29 @@ class MusicService(CatalogService):
                     )
                     values = dict(
                         listen_count=SongStats.listen_count + 1,
-                        first_listened_at=func.coalesce(SongStats.first_listened_at, now()),
+                        first_listened_at=first_time(SongStats.first_listened_at, now()),
                         last_listened_at=now(),
                     )
                     if pb.click_pending:
                         values.update(
                             click_count=SongStats.click_count + 1,
-                            first_clicked_at=func.coalesce(SongStats.first_clicked_at, now()),
+                            first_clicked_at=first_time(SongStats.first_clicked_at, now()),
                             last_clicked_at=now(),
                         )
+                    names = ["last_listened_at"] + (["last_clicked_at"] if pb.click_pending else [])
+                    first = ["first_listened_at"] + (
+                        ["first_clicked_at"] if pb.click_pending else []
+                    )
                     await db.execute(
-                        update(SongStats).where(SongStats.song_id == pb.song_id).values(**values)
+                        update(SongStats)
+                        .where(SongStats.song_id == pb.song_id)
+                        .ordered_values(
+                            (
+                                "time_storage_mask",
+                                mark_times(SongStats, *names, first_if_null=first),
+                            ),
+                            *values.items(),
+                        )
                     )
                     await db.commit()
             return {"ok": True}

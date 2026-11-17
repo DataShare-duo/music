@@ -10,6 +10,7 @@ from sqlalchemy import delete, func, select
 from music.core.errors import AppError
 from music.core.locks import Locks
 from music.db.models import User, UserHistory, UserHistoryState, UserMark, UserOperation, now
+from music.db.time import utc_expression
 
 MAX_AVATAR = 2 * 1024 * 1024
 MARK_LIMIT = 200
@@ -101,7 +102,7 @@ class PersonalService:
             await db.scalars(
                 select(UserMark)
                 .where(UserMark.user_key == key)
-                .order_by(UserMark.updated_at.desc())
+                .order_by(utc_expression(UserMark.updated_at).desc())
             )
         )
         user = await db.get(User, key)
@@ -111,7 +112,7 @@ class PersonalService:
                 await db.scalars(
                     select(UserHistory)
                     .where(UserHistory.user_key == key, UserHistory.kind == kind)
-                    .order_by(UserHistory.happened_at.desc())
+                    .order_by(utc_expression(UserHistory.happened_at).desc())
                     .limit(limit)
                 )
             )
@@ -317,7 +318,7 @@ class PersonalService:
             await db.scalars(
                 select(UserHistory)
                 .where(UserHistory.user_key == user.user_key, UserHistory.kind == kind)
-                .order_by(UserHistory.happened_at.desc())
+                .order_by(utc_expression(UserHistory.happened_at).desc())
             )
         )
         for row in rows[limit:]:

@@ -17,7 +17,7 @@ async def test_alembic_upgrade_is_repeatable(tmp_path):
         assert set(Base.metadata.tables).issubset(tables)
         assert (
             await connection.execute(text("select version_num from alembic_version"))
-        ).scalar_one() == "0005"
+        ).scalar_one() == "0006"
     await db.engine.dispose()
 
 

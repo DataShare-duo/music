@@ -14,6 +14,7 @@ from music.core.errors import AppError
 from music.core.locks import Locks
 from music.core.verification import FullAudioResolver, FullAudioUnavailable
 from music.db.models import AudioLink, Playback, ProviderCache, Song, SongStats, now
+from music.db.time import mark_times, utc_expression
 from music.providers.official import SOURCE_NAMES, Track, cover
 from music.schemas.api import SongView
 
@@ -112,7 +113,7 @@ class CatalogService:
                     select(Song.id)
                     .where(or_(Song.verification_state == "pending", Song.next_check_at <= now()))
                     .where(Song.id.not_in(self.scheduled))
-                    .order_by(Song.next_check_at, Song.id)
+                    .order_by(utc_expression(Song.next_check_at), Song.id)
                     .limit(room)
                 )
             )
@@ -134,7 +135,7 @@ class CatalogService:
                             Song.id.not_in(self.scheduled),
                             or_(Song.verification_state == "pending", Song.next_check_at <= now()),
                         )
-                        .order_by(Song.next_check_at, Song.id)
+                        .order_by(utc_expression(Song.next_check_at), Song.id)
                         .limit(room)
                     )
                 )
@@ -281,6 +282,7 @@ class CatalogService:
                         for key in values
                         if key not in ("source", "source_track_id")
                     }
+                    changes["time_storage_mask"] = mark_times(Song, "updated_at")
                     if recommended:
                         changes["recommended"] = True
                     await db.execute(statement.on_duplicate_key_update(**changes))
@@ -290,6 +292,7 @@ class CatalogService:
                         for key in values
                         if key not in ("recommended", "source", "source_track_id")
                     }
+                    changes["time_storage_mask"] = mark_times(Song, "updated_at")
                     if recommended:
                         changes["recommended"] = True
                     await db.execute(
@@ -379,6 +382,7 @@ class CatalogService:
             if self.db.engine.dialect.name == "mysql":
                 await db.execute(
                     statement.on_duplicate_key_update(
+                        time_storage_mask=mark_times(ProviderCache, "updated_at", "expires_at"),
                         value=statement.inserted.value,
                         expires_at=statement.inserted.expires_at,
                         updated_at=statement.inserted.updated_at,
@@ -389,6 +393,9 @@ class CatalogService:
                     statement.on_conflict_do_update(
                         index_elements=["key"],
                         set_={
+                            "time_storage_mask": mark_times(
+                                ProviderCache, "updated_at", "expires_at"
+                            ),
                             "value": statement.excluded.value,
                             "expires_at": statement.excluded.expires_at,
                             "updated_at": statement.excluded.updated_at,
