@@ -7,6 +7,8 @@ Page({
   data: {
     healthLoading: false,
     cloudStatus: "尚未检查云服务",
+    identityLoading: false,
+    identityStatus: "尚未检查微信身份",
     events: [] as string[],
     song: "尚未选择歌曲",
     source: "",
@@ -61,6 +63,22 @@ Page({
       });
     } finally {
       this.setData({ healthLoading: false });
+    }
+  },
+  async checkIdentity() {
+    if (this.data.identityLoading) return;
+    this.setData({ identityLoading: true, identityStatus: "正在检查微信身份…" });
+    try {
+      const result = await api.get<{ status: string }>("/api/miniprogram/identity");
+      this.setData({
+        identityStatus: result.status === "ok" ? "微信身份校验通过" : "微信身份检查未通过",
+      });
+    } catch (e) {
+      this.setData({
+        identityStatus: e instanceof Error ? e.message : "微信身份检查失败",
+      });
+    } finally {
+      this.setData({ identityLoading: false });
     }
   },
   back() {

@@ -66,7 +66,12 @@ Page({
     wx.navigateTo({ url: "/" + routes.library + "?kind=" + kind });
   },
   retry() {
-    void this.store?.sync();
+    if (!this.store || this.data.busy) return;
+    if (!this.store.data.active) {
+      void this.enable();
+      return;
+    }
+    void this.store.sync();
   },
   about() {
     wx.showModal({

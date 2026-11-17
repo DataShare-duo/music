@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 
 from music.core.errors import AppError
 from music.core.lyrics import LyricsView
+from music.core.wechat import require_wechat_identity
 from music.schemas.api import (
     CreateNativePlayback,
     NativePlaybackView,
@@ -62,13 +63,15 @@ async def restore(body: RestoreSong, request: Request):
         raise AppError("restore_timeout", "歌曲恢复超时，请稍后重试", 504) from exc
 
 
+@router.get("/identity")
+async def identity(request: Request):
+    require_wechat_identity(request)
+    return {"status": "ok"}
+
+
 @router.post("/personal")
 async def personal(request: Request):
-    app_id = request.headers.get("x-wx-appid")
-    openid = request.headers.get("x-wx-openid")
-    source = request.headers.get("x-wx-source")
-    if app_id != request.app.state.settings.wechat_app_id or not openid or source != "wx_client":
-        raise AppError("unauthenticated", "无法确认微信身份，请通过小程序云调用访问", 401)
+    app_id, openid = require_wechat_identity(request)
     body = await request.json()
     if any(key in body.get("data", {}) for key in ("openid", "userId", "userKey")):
         raise AppError("invalid_identity", "不能指定其他用户身份", 400)

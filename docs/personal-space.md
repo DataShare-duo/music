@@ -113,7 +113,7 @@ POST /api/miniprogram/personal
 
 - `X-WX-APPID` 必须匹配 `wxe1af0ed55ed257b7`
 - `X-WX-OPENID` 必须存在
-- `X-WX-SOURCE` 必须为允许的小程序调用来源
+- `X-WX-SOURCE` 必须存在且有效，不假定其值固定为 `wx_client`，调用来源与用户身份均依赖可信微信云托管网关注入
 - 请求体不能指定其他用户的 OpenID、用户 ID 或用户摘要
 
 用户身份只保存 AppID 和 OpenID 的 SHA-256 摘要，不保存原始 OpenID
@@ -172,3 +172,26 @@ npm test
 本次不做旧 SQLite 数据导出、不做旧云数据库数据导出、不做双写、不做 Web 部署、不提交审核或发布正式版
 
 需要分别确认：源码测试通过、MySQL 空库初始化成功、云托管内网连接成功、小程序开发版上传成功、两个真实微信账号验收通过
+
+## 个人空间身份排障
+
+0.5.3 修正了后端将 `X-WX-SOURCE` 写死为 `wx_client` 导致其他合法调用来源被误拒绝的问题，仅修改小程序 `traceUser` 无法修正后端判断
+
+微信官方说明见 [容器内变量信息](https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloudrun/src/development/weixin/index.html)，按照来源头存在性、当前 AppID 和有效 OpenID 进行校验，不从请求体、客户端自设身份头或前端缓存恢复用户身份，不启用游客身份兜底
+
+此信任边界要求云托管关闭公网访问，容器只接受微信云调用网关转发的身份头，不应直接向公网开放 FastAPI 或允许自建代理注入这些身份头，不要通过客户端手填 OpenID 修复报错
+
+更新时先将 FastAPI 部署到包含此修复的提交并切换流量，再切换小程序体验包，数据库结构未变化，无需新迁移
+
+进入“我的 → 服务检查与播放事件 → 检查身份”，该接口不创建用户、不增加播放计数，也不返回 OpenID 或完整身份请求头
+
+| 错误码 | 检查方向 |
+| --- | --- |
+| `wechat_source_missing` | 是否通过 `wx.cloud.callContainer` 调用，云托管入口是否正确 |
+| `wechat_appid_missing` | 微信应用身份是否被网关或中间代理丢弃 |
+| `wechat_appid_mismatch` | 运行版本的 `MUSIC_WECHAT_APP_ID` 是否与当前小程序一致 |
+| `wechat_openid_missing` | 用户身份是否透传，当前环境是否为同一小程序直属环境 |
+
+当前只接收同一小程序直属环境身份，不自动将资源复用的 `X-WX-FROM-OPENID` 当作本环境用户，若使用资源复用需另行配置明确的信任关系
+
+后端身份失败日志只记录错误码和各身份字段是否存在，不记录原始用户标识，未启用时“重试启用”会重新执行启用请求，已启用时“重试同步”保持原有同步行为

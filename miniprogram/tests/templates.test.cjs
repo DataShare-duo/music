@@ -151,31 +151,43 @@ test("fullscreen back is a small left chevron without a circle and keeps the tra
   assert.ok(!rule(".collapse-pressed").includes("background"));
 });
 
-test("personal actions use a grouped card with selected states and readable labels", async () => {
-  const markup = await fs.readFile(
-    path.resolve(__dirname, "../src/pages/player/index.wxml"),
-    "utf8",
-  );
-  const css = await fs.readFile(
-    path.resolve(__dirname, "../src/pages/player/index.wxss"),
-    "utf8",
-  );
-  assert.ok(markup.includes('class="personal-actions"'));
-  assert.ok(markup.includes('class="action-icon action-star"'));
-  assert.ok(markup.includes('class="action-icon action-heart"'));
-  assert.ok(markup.includes('class="action-icon action-share"'));
-  assert.ok(markup.includes('share-action'));
-  assert.ok(markup.includes('hover-class="personal-action-pressed"'));
-  assert.ok(!markup.includes(">★</text>") && !markup.includes(">♥</text>"));
-  assert.match(css, /\.personal-actions[\s\S]*border-radius: 28rpx/);
-  assert.match(css, /\.personal-action[\s\S]*min-height: 92rpx/);
-  assert.match(css, /\.personal-action-pressed[\s\S]*transform: scale\(0\.96\)/);
-  assert.ok(
-    css.includes(".favorite-selected") && css.includes(".like-selected"),
-  );
-  assert.ok(
-    css.includes(".action-star::before") &&
-      css.includes(".action-heart::before"),
-  );
-  assert.ok(css.includes(".action-share::before"));
+test("personal actions use flat vector icons without nested cards, circles or font glyphs", async () => {
+  const root = path.resolve(__dirname, "../src");
+  const markup = await fs.readFile(path.join(root, "pages/player/index.wxml"), "utf8");
+  const css = await fs.readFile(path.join(root, "pages/player/index.wxss"), "utf8");
+  const rule = (selector) => {
+    const start = css.indexOf(selector + " {");
+    assert.notEqual(start, -1, selector);
+    return css.slice(start, css.indexOf("}", start));
+  };
+  const actions = markup.slice(markup.indexOf('<view class="personal-actions">'), markup.indexOf('<text wx:if="{{personalError}}"'));
+  assert.equal((actions.match(/class="action-icon"/g) || []).length, 3);
+  assert.equal((actions.match(/class="action-label"/g) || []).length, 3);
+  assert.equal((actions.match(/hover-class="personal-action-pressed"/g) || []).length, 3);
+  assert.equal((actions.match(/bindtap="toggleMark"/g) || []).length, 2);
+  assert.ok(actions.includes('open-type="share"'));
+  assert.ok(actions.includes('aria-label="分享歌曲"'));
+  assert.ok(actions.includes("已收藏") && actions.includes("已喜欢"));
+  assert.ok(actions.includes('disabled="{{!hasSong || markLoading}}"'));
+  assert.ok(!/[☆★♡♥↗]/u.test(actions));
+  for (const name of ["star", "star-filled", "heart", "heart-filled", "share"]) {
+    assert.ok(actions.includes("/assets/icons/" + name + ".svg"));
+    const icon = await fs.readFile(path.join(root, "assets/icons", name + ".svg"), "utf8");
+    assert.ok(icon.includes('viewBox="0 0 24 24"'));
+    assert.ok(icon.includes('stroke-width="1.7"'));
+    assert.ok(!icon.includes("<text") && !icon.includes("<script") && !icon.includes("<circle"));
+    assert.ok(await fs.readFile(path.join(__dirname, "../dist/assets/icons", name + ".svg"), "utf8"));
+  }
+  for (const selector of [".personal-actions", ".personal-action"]) {
+    assert.match(rule(selector), /background: transparent/);
+    assert.match(rule(selector), /border: 0/);
+    assert.ok(!rule(selector).includes("box-shadow"));
+  }
+  assert.match(rule(".personal-action"), /min-height: 104rpx/);
+  assert.match(rule(".action-icon"), /width: 40rpx/);
+  assert.ok(!rule(".action-icon").includes("border"));
+  assert.ok(!css.includes(".action-star::before") && !css.includes(".action-heart::before"));
+  assert.match(rule(".favorite-selected"), /#f7cc88/);
+  assert.match(rule(".like-selected"), /#f4a6b2/);
+  assert.match(rule(".personal-action-pressed"), /scale\(0\.94\)/);
 });

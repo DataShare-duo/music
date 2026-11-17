@@ -1,5 +1,5 @@
 import { Song } from "../types";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import { newRequestId } from "./api";
 export type SavedSong = Pick<
   Song,
@@ -109,7 +109,7 @@ export async function callPersonal(
   } catch (e) {
     if (e instanceof PersonalError) throw e;
     throw new PersonalError(
-      "personal_unavailable",
+      e instanceof ApiError ? e.code : "personal_unavailable",
       e instanceof Error ? e.message : "个人服务暂不可用，听歌不受影响",
     );
   }
