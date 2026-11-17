@@ -1,10 +1,10 @@
 import type { MusicApp } from "../../app";
 import { PersonalStore } from "../../services/personal";
 import { routes } from "../../routes";
-import { PersonalLibrary, emptyLibrary } from "../../shared/personal-library";
+import { PersonalLibrary, emptyLibrary, type LibraryKind } from "../../shared/personal-library";
 Page({
   data: {
-    ...emptyLibrary(),
+    ...emptyLibrary("recent"),
     active: false,
     avatar: "",
     avatarBroken: false,
@@ -18,8 +18,11 @@ Page({
   store: null as PersonalStore | null,
   library: null as PersonalLibrary | null,
   onLoad(options: Record<string, string>) {
+    const kind = ["recent", "like", "favorite"].includes(options.kind)
+      ? options.kind as LibraryKind : "recent";
+    this.setData({ kind });
     this.library = new PersonalLibrary((view) => this.setData(view));
-    this.library.select(options.kind || "favorite");
+    this.library.select(kind);
   },
   onShow() {
     this.unsubscribe?.();
@@ -33,9 +36,10 @@ Page({
         likeCount: s.like.length, recentCount: s.recent.items.length,
       });
     }) || null;
+    this.library.select(this.data.kind);
     this.library.show(this.store);
-    if (this.store && !this.store.data.active) void this.enable();
-    else {
+    // Native avatar selection must follow an explicit tap, never page visibility.
+    if (this.store?.data.active) {
       void this.store?.sync().then(() => this.store?.loadAvatar());
     }
   },
@@ -53,12 +57,15 @@ Page({
       await this.store?.enable();
     } finally { this.setData({ busy: false }); }
   },
-  async chooseAvatar(event: WechatMiniprogram.CustomEvent<{ avatarUrl: string }>) {
+  activateWithAvatar(event: WechatMiniprogram.CustomEvent<{ avatarUrl: string }>) {
+    return this.chooseAvatar(event, true);
+  },
+  async chooseAvatar(event: WechatMiniprogram.CustomEvent<{ avatarUrl: string }>, enableConfirmed = false) {
     const path = event.detail.avatarUrl;
     if (this.data.busy || !path) return;
     this.setData({ busy: true });
     try {
-      await this.store?.setAvatar(path);
+      await this.store?.setAvatar(path, enableConfirmed);
     } catch {
       // PersonalStore exposes the failure without interrupting background music.
     } finally { this.setData({ busy: false }); }

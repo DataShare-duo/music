@@ -87,3 +87,40 @@ test("identity diagnostics check only the cloud identity and do not mutate a pro
     api.get = original;
   }
 });
+
+test("mine defaults to recent, honors explicit old deep links, and visiting as a guest never auto-enables", async () => {
+  let calls=[]; const listeners=new Set();
+  const data={active:false,avatar:"",error:"",favorite:[],like:[],recent:{items:[]}};
+  const store={data,subscribe(fn){listeners.add(fn);fn(data);return()=>listeners.delete(fn);},
+    enable:async()=>{calls.push("enable");return true;},
+    sync:async()=>calls.push("sync"),loadAvatar:async()=>calls.push("avatar")};
+  const old=global.getApp;global.getApp=()=>({personal:store});
+  try {
+    const page=make(mine);page.onLoad({});page.onShow();
+    assert.equal(page.data.kind,"recent");assert.deepEqual(calls,[]);
+    page.onHide();assert.equal(listeners.size,0);
+    for(const kind of ["favorite","like","recent","invalid"]) {
+      const other=make(mine);other.onLoad({kind});other.onShow();
+      assert.equal(other.data.kind,kind==="invalid"?"recent":kind);
+      other.onHide();
+    }
+    data.active=true;page.onShow();await flush();
+    assert.deepEqual(calls,["sync","avatar"]);page.onHide();
+  } finally {global.getApp=old;}
+});
+
+test("primary activation accepts only a confirmed native avatar event, avoids duplicate submits and keeps skip optional", async () => {
+  const page=make(mine),calls=[];let finish;
+  const pending=new Promise(resolve=>{finish=resolve;});
+  page.store={setAvatar:async(...args)=>{calls.push(args);await pending;}};
+  await page.activateWithAvatar({detail:{avatarUrl:""}});
+  assert.equal(calls.length,0);
+  const first=page.activateWithAvatar({detail:{avatarUrl:"wxfile://tmp/chosen"}});
+  assert.equal(page.data.busy,true);
+  await page.activateWithAvatar({detail:{avatarUrl:"wxfile://tmp/duplicate"}});
+  assert.deepEqual(calls,[["wxfile://tmp/chosen",true]]);
+  finish();await first;assert.equal(page.data.busy,false);
+  page.store={setAvatar:async(...args)=>calls.push(args)};
+  await page.chooseAvatar({detail:{avatarUrl:"wxfile://tmp/replacement"}});
+  assert.deepEqual(calls.at(-1),["wxfile://tmp/replacement",false]);
+});

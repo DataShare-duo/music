@@ -15,15 +15,19 @@
       <button class="avatar-setting" open-type="chooseAvatar" bindchooseavatar="chooseAvatar" disabled="{{busy}}">{{busy ? '正在保存…' : (avatar && !avatarBroken ? '更换头像' : '选择头像')}}</button>
     </view>
   </view>
-  <text wx:if="{{!avatar || avatarBroken}}" class="avatar-guidance">微信头像需要你主动选择，不会随微信身份自动获取</text>
-  <button wx:if="{{!active}}" class="primary enable-space" bindtap="enable" disabled="{{busy}}">{{busy ? '正在开启…' : '启用个人空间'}}</button>
+  <text wx:if="{{active && (!avatar || avatarBroken)}}" class="avatar-guidance">微信头像需要你主动选择，不会随微信身份自动获取</text>
+  <view wx:if="{{!active}}" class="activation-card">
+    <button class="primary enable-space" open-type="chooseAvatar" bindchooseavatar="activateWithAvatar" disabled="{{busy}}">{{busy ? '正在保存…' : '启用个人空间'}}</button>
+    <text class="activation-note">使用微信身份保存收藏与记录，选择头像后自动启用</text>
+    <button class="avatar-skip" bindtap="enable" disabled="{{busy}}">暂不设置头像，直接启用</button>
+  </view>
   <view wx:if="{{error}}" class="error-box"><text>{{error}}</text><button class="retry" bindtap="retry" disabled="{{busy}}">{{active ? '重试同步' : '重试启用'}}</button></view>
   <text class="space-status">{{active ? '个人空间已启用 · 收藏与记录支持云端同步' : '访客模式 · 最近播放保存在本机，启用后同步到云端'}}</text>
 
   <view class="mine-tabs" aria-role="tablist" aria-label="个人歌曲分类">
-    <button class="mine-tab {{kind === 'favorite' ? 'mine-tab-active' : ''}}" data-kind="favorite" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'favorite'}}" aria-controls="mine-song-panel"><text>收藏</text><text class="tab-count">{{favoriteCount}}</text></button>
-    <button class="mine-tab {{kind === 'like' ? 'mine-tab-active' : ''}}" data-kind="like" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'like'}}" aria-controls="mine-song-panel"><text>喜欢</text><text class="tab-count">{{likeCount}}</text></button>
-    <button class="mine-tab {{kind === 'recent' ? 'mine-tab-active' : ''}}" data-kind="recent" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'recent'}}" aria-controls="mine-song-panel"><text>最近播放</text><text class="tab-count">{{recentCount}}</text></button>
+    <button class="mine-tab {{kind === 'recent' ? 'mine-tab-active' : ''}}" hover-class="mine-tab-pressed" data-kind="recent" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'recent'}}" aria-controls="mine-song-panel"><text>最近播放</text><text class="tab-count">{{recentCount}}</text><view class="tab-underline" aria-hidden="true"/></button>
+    <button class="mine-tab {{kind === 'like' ? 'mine-tab-active' : ''}}" hover-class="mine-tab-pressed" data-kind="like" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'like'}}" aria-controls="mine-song-panel"><text>喜欢</text><text class="tab-count">{{likeCount}}</text><view class="tab-underline" aria-hidden="true"/></button>
+    <button class="mine-tab {{kind === 'favorite' ? 'mine-tab-active' : ''}}" hover-class="mine-tab-pressed" data-kind="favorite" bindtap="changeTab" aria-role="tab" aria-selected="{{kind === 'favorite'}}" aria-controls="mine-song-panel"><text>收藏</text><text class="tab-count">{{favoriteCount}}</text><view class="tab-underline" aria-hidden="true"/></button>
   </view>
   <view id="mine-song-panel" class="mine-panel" aria-role="tabpanel">
     <view class="mine-list-head"><text>{{kind === 'favorite' ? '收藏的旋律' : (kind === 'like' ? '心动的声音' : '最近听过')}}<text class="list-total"> · {{total}} 首</text></text><button wx:if="{{kind === 'recent' && total}}" class="history-clear" bindtap="clearRecent">清空记录</button></view>

@@ -195,17 +195,21 @@ export class PersonalStore {
     this.data.favorite = view.favorite;
     this.data.like = view.like;
   }
-  async enable(): Promise<boolean> {
+  async enable(confirmed = false): Promise<boolean> {
     if (this.data.active) return true;
     if (this.enabling) return this.enabling;
     this.enabling = (async () => {
-      const answer = await wx.showModal({
-        title: "启用个人空间",
-        content:
-          "使用当前微信身份保存收藏、喜欢和历史，不需要手机号，头像可自愿设置",
-        confirmText: "启用",
-      });
-      if (!answer.confirm) return false;
+      // The primary enable button already states the purpose; its native avatar
+      // confirmation is an explicit user action, not a page lifecycle side effect.
+      if (!confirmed) {
+        const answer = await wx.showModal({
+          title: "启用个人空间",
+          content:
+            "使用当前微信身份保存收藏、喜欢和历史，不需要手机号，头像可自愿设置",
+          confirmText: "启用",
+        });
+        if (!answer.confirm) return false;
+      }
       try {
         const view = await this.call("profile.enable");
         this.profile(view);
@@ -437,8 +441,8 @@ export class PersonalStore {
       if (this.avatarLoading === request) this.avatarLoading = null;
     }
   }
-  async setAvatar(path: string) {
-    if (!(await this.enable())) return;
+  async setAvatar(path: string, enableConfirmed = false) {
+    if (!(await this.enable(enableConfirmed))) return;
     const owner = this.data.userKey;
     ++this.avatarGeneration;
     try {

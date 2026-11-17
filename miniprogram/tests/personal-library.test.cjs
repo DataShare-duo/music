@@ -98,3 +98,22 @@ test("mine template presents three tabs, inline rows, chosen-avatar entry and st
   assert.ok(markup.includes("访客模式"));assert.ok(!markup.includes("未启用时，搜索和播放历史"));
   assert.ok(markup.includes("<player-bar/>"));
 });
+
+test("mine tabs are ordered recent, like, favorite with a light underline and native enable avatar entry",()=>{
+  const root=path.resolve(__dirname,"../src/pages/mine");
+  const markup=fs.readFileSync(path.join(root,"index.wxml"),"utf8");
+  const css=fs.readFileSync(path.join(root,"index.wxss"),"utf8");
+  const positions=["recent","like","favorite"].map(kind=>markup.indexOf('data-kind="'+kind+'"'));
+  assert.ok(positions[0]>=0&&positions[0]<positions[1]&&positions[1]<positions[2]);
+  const rule=(name)=>{const a=css.indexOf(name+" {");assert.ok(a>=0);return css.slice(a,css.indexOf("}",a));};
+  assert.match(rule(".mine-tabs"),/background: transparent/);
+  assert.ok(!rule(".mine-tabs").includes("border-radius"));
+  assert.ok(!rule(".mine-tab-active").includes("box-shadow"));
+  assert.match(rule(".mine-tab"),/min-height: 104rpx/);
+  assert.match(rule(".activation-card .enable-space"),/width: 100%/);
+  assert.ok(!rule(".tab-count").includes("background"));
+  assert.match(rule(".mine-tab-active .tab-underline"),/opacity: 1/);
+  assert.equal((markup.match(/class="tab-underline"/g)||[]).length,3);
+  assert.match(markup, /class="primary enable-space" open-type="chooseAvatar" bindchooseavatar="activateWithAvatar"/);
+  assert.ok(markup.includes('class="avatar-skip" bindtap="enable"'));
+});

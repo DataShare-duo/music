@@ -158,3 +158,19 @@ test("legacy base64 caches are not exposed to page data and enabling reloads a p
   assert.ok(removed.includes(previous));
   assert.equal(other.data.avatar,"");
 });
+
+test("explicit native activation enables and saves the chosen avatar without a second confirmation modal", async () => {
+  let modalCount=0,uploaded=false;const original=wx.showModal;
+  wx.showModal=async()=>{modalCount++;return {confirm:true};};
+  image=png;
+  const s=store(async(action)=>{
+    if(action==="avatar.set")uploaded=true;
+    return view(action==="avatar.get"&&uploaded?uri(png,"image/png"):"");
+  });
+  s.data.active=false;s.data.userKey="";
+  try {
+    await s.setAvatar("wxfile://tmp/activation",true);
+    assert.equal(modalCount,0);assert.equal(s.data.active,true);
+    assert.ok(uploaded);assert.ok(s.data.avatar.endsWith(".png"));
+  } finally {wx.showModal=original;}
+});

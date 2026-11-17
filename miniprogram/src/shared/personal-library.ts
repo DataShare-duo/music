@@ -13,8 +13,8 @@ export interface LibraryRow extends Entry {
   sourceLabel: string;
   availability: string;
 }
-export const emptyLibrary = () => ({
-  kind: "favorite" as LibraryKind,
+export const emptyLibrary = (kind: LibraryKind = "favorite") => ({
+  kind,
   items: [] as LibraryRow[],
   page: 1,
   pages: 1,
