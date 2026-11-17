@@ -89,7 +89,9 @@ function setup(played) {
   const api = {
     get: async (path) => {
       calls.push(["GET", path]);
-      return session();
+      return path.startsWith("/api/home")
+        ? { items: [song(2)], refreshing: false }
+        : session();
     },
     post: async (path, data) => {
       calls.push(["POST", path, data]);
@@ -234,7 +236,7 @@ test("headset next/previous use current queue; stale events after teardown do no
   assert.equal(player.state.playing, false);
 });
 
-test("natural end advances exactly once to the next song using the current queue", async () => {
+test("natural end chooses a verified home recommendation exactly once", async () => {
   const { player, audio, api, calls } = setup();
   const pending = deferred();
   api.post = async (path, data) => {
@@ -253,49 +255,49 @@ test("natural end advances exactly once to the next song using the current queue
   assert.equal(player.state.current.id, 2);
   assert.equal(audio.src, session("two").audio_url);
   assert.ok(
-    player.state.events.some((event) => event.includes("自动播放下一首")),
+    player.state.events.some((event) => event.includes("自动从首页选择下一首")),
   );
   player.destroy();
 });
-test("automatic end of final or single song stops without looping or creating another click", async () => {
+test("end of either a full list or a single song continues from home instead of stopping", async (t) => {
   const { player, audio, api, calls } = setup();
+  t.after(() => player.destroy());
   api.post = async (path, data) => {
     calls.push(["POST", path, data]);
-    return session("two");
+    return session(path.includes("/2/") ? "two" : "one");
   };
-  await player.play(song(2), [song(), song(2)]);
-  audio.currentTime = 179;
-  audio.emit("TimeUpdate");
-  audio.emit("Waiting");
-  const before = calls.length;
-  audio.emit("Ended");
-  await flush();
-  assert.equal(calls.length, before);
-  assert.equal(player.state.playing, false);
-  assert.equal(player.state.loading, false);
-  assert.equal(player.state.position, 180);
-  assert.match(player.state.message, /列表已播放完/);
+  api.get = async () => ({ items: [song(1)], refreshing: false });
   await player.play(song(2), [song(2)]);
-  const single = calls.length;
   audio.emit("Ended");
   await flush();
-  assert.equal(calls.length, single);
-  player.destroy();
+  await flush();
+  assert.equal(player.state.current.id, 1);
+  assert.equal(player.state.failed, false);
+  const create = calls.find((x) => x[1].includes("/1/playbacks"));
+  assert.equal(create[2].defer_click, true);
 });
-test("natural end does not skip an incompatible next song or silently change source", async () => {
+
+test("incompatible recommendation is skipped without replacing its song version or hiding it globally", async (t) => {
   const { player, audio, api } = setup();
+  t.after(() => player.destroy());
+  api.get = async () => ({ items: [song(2), song(3)], refreshing: false });
   api.post = async (path) => {
     if (path.includes("/2/"))
-      throw new ApiError("direct_audio_unsupported", "HTTPS不兼容");
+      throw new ApiError("direct_audio_unsupported", "不兼容");
     return session();
   };
-  await player.play(song(), [song(), song(2), song(3)]);
-  audio.emit("Ended");
-  await flush();
-  assert.equal(player.state.current.id, 2);
-  assert.equal(player.state.failed, true);
-  assert.equal(player.queue.length, 3);
-  player.destroy();
+  const random = Math.random;
+  Math.random = () => 0;
+  try {
+    await player.play(song(), [song()]);
+    audio.emit("Ended");
+    for (let i = 0; i < 6; i++) await flush();
+    assert.equal(player.state.current.id, 3);
+    assert.equal(player.state.failed, false);
+    assert.equal(player.acceptAvailable([song(2)], 0).length, 1);
+  } finally {
+    Math.random = random;
+  }
 });
 
 test("personal history is emitted only for actual current-session play, once across pause, seek, lifecycle and refresh", async () => {

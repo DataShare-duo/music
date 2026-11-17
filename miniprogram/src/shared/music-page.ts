@@ -1,7 +1,8 @@
+import { enableSharing, isTimelinePreview } from "../services/sharing";
 import { MusicApp } from "../app";
 import { api } from "../services/api";
 import { Catalog, CatalogState } from "../services/catalog";
-import { Song, Source, sourceNames, time } from "../types";
+import { Song, sourceNames, time } from "../types";
 import { PersonalData } from "../services/personal";
 import { routes } from "../routes";
 
@@ -28,11 +29,9 @@ export function registerMusicPage(mode: "home" | "search"): void {
   Page({
     data: {
       mode,
+      limitedShare: false,
       query: "",
       searched: "",
-      source: "soda" as Source,
-      sourceIndex: 0,
-      sourceNames: ["汽水音乐", "网易云音乐", "酷我音乐", "QQ音乐", "酷狗音乐"],
       items: [] as ReturnType<typeof presentSongs>,
       featured: [] as ReturnType<typeof presentSongs>,
       loading: false,
@@ -64,34 +63,31 @@ export function registerMusicPage(mode: "home" | "search"): void {
     availabilityRevision: -1,
     personalUnsubscribe: null as (() => void) | null,
     onLoad(options: Record<string, string>) {
+      if (isTimelinePreview()) {
+        this.setData({
+          limitedShare: true,
+          query: decodeSearchQuery(options.q),
+          searched: decodeSearchQuery(options.q),
+        });
+        return;
+      }
+      enableSharing();
       const app = getApp<MusicApp>();
       this.startupError = app.startupError;
       const query = decodeSearchQuery(options.q);
-      const requested = options.source;
-      const source: Source =
-        requested === "netease" ||
-        requested === "kuwo" ||
-        requested === "qq" ||
-        requested === "kugou"
-          ? requested
-          : "soda";
-      this.setData({
-        query,
-        searched: query,
-        source,
-        sourceIndex: ["soda", "netease", "kuwo", "qq", "kugou"].indexOf(source),
-      });
+      this.setData({ query, searched: query });
       this.catalog = new Catalog(
         api,
         (state) => this.renderResult(state),
         () => app.player?.availabilityRevision || 0,
       );
       if (mode === "search") {
-        this.catalog.change("search", query, source);
+        this.catalog.change("search", query);
         if (query) app.personal?.recordSearch(query);
       }
     },
     onShow() {
+      if (this.data.limitedShare) return;
       this.unsubscribe?.();
       this.personalUnsubscribe?.();
       const app = getApp<MusicApp>();
@@ -173,7 +169,7 @@ export function registerMusicPage(mode: "home" | "search"): void {
       }
       getApp<MusicApp>().personal?.recordSearch(query);
       this.setData({ query, searched: query, page: 1, error: "" });
-      this.catalog?.change("search", query, this.data.source, 1);
+      this.catalog?.change("search", query, 1);
       // A search page starts inactive until the first submitted keyword
       this.catalog?.resume();
     },
@@ -195,39 +191,17 @@ export function registerMusicPage(mode: "home" | "search"): void {
       this.setData({ query });
       this.search();
     },
-    sourceChange(event: WechatMiniprogram.PickerChange) {
-      const index = Number(event.detail.value);
-      const source = (["soda", "netease", "kuwo", "qq", "kugou"] as Source[])[
-        index
-      ];
-      if (!source) return;
-      this.setData({ source, sourceIndex: index, page: 1 });
-      if (this.data.searched) {
-        this.catalog?.change("search", this.data.searched, source, 1);
-        this.catalog?.resume();
-      }
-    },
     nextPage() {
       if (!this.data.hasMore || this.data.loading) return;
       const page = this.data.page + 1;
       this.setData({ page });
-      this.catalog?.change(
-        "search",
-        this.data.searched,
-        this.data.source,
-        page,
-      );
+      this.catalog?.change("search", this.data.searched, page);
     },
     previousPage() {
       if (this.data.page <= 1 || this.data.loading) return;
       const page = this.data.page - 1;
       this.setData({ page });
-      this.catalog?.change(
-        "search",
-        this.data.searched,
-        this.data.source,
-        page,
-      );
+      this.catalog?.change("search", this.data.searched, page);
     },
     shuffle() {
       if (!this.data.loading) void this.catalog?.load(true);
@@ -280,6 +254,15 @@ export function registerMusicPage(mode: "home" | "search"): void {
     diagnostics() {
       this.setData({ aboutOpen: false });
       wx.navigateTo({ url: "/" + routes.diagnostics });
+    },
+    onShareTimeline() {
+      return {
+        title: "听见 · 给生活留一点音乐的时间",
+        query:
+          mode === "search" && this.data.searched
+            ? "q=" + encodeURIComponent(this.data.searched)
+            : "",
+      };
     },
     onShareAppMessage() {
       return {

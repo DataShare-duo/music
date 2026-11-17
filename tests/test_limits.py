@@ -105,19 +105,19 @@ async def test_search_admission_is_bounded_deduplicates_and_keeps_stale_cache(sy
     providers.search = blocked
     service.settings.search_task_limit = 2
     try:
-        assert (await client.get("/api/search?q=first")).status_code == 200
-        assert (await client.get("/api/search?q=second")).status_code == 200
-        response = await client.get("/api/search?q=third")
+        assert (await client.get("/api/search?q=first&source=soda")).status_code == 200
+        assert (await client.get("/api/search?q=second&source=soda")).status_code == 200
+        response = await client.get("/api/search?q=third&source=soda")
         assert response.status_code == 503 and response.headers["retry-after"]
-        assert (await client.get("/api/search?q=first")).status_code == 200
-        cached = (await client.get("/api/search?q=test")).json()
+        assert (await client.get("/api/search?q=first&source=soda")).status_code == 200
+        cached = (await client.get("/api/search?q=test&source=soda")).json()
         assert cached["stale"] and cached["items"]
         assert len(service.search_tasks) == 2
     finally:
         release.set()
         await service.wait_for_idle()
     assert not service.search_tasks
-    assert (await client.get("/api/search?q=third")).status_code == 200
+    assert (await client.get("/api/search?q=third&source=soda")).status_code == 200
     await service.wait_for_idle()
 
 

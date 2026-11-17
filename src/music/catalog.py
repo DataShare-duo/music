@@ -40,6 +40,7 @@ class CatalogService:
         self.verifier = FullAudioResolver(providers, probe, settings)
         self.catalog_task = None
         self.search_tasks = {}
+        self.search_source_slots = asyncio.Semaphore(min(2, settings.provider_concurrency))
         self.worker_tasks = []
         self.scan_task = None
         self.queue = asyncio.Queue(maxsize=settings.verification_queue_size)
@@ -100,8 +101,12 @@ class CatalogService:
             await asyncio.sleep(60)
             try:
                 await self.scan_due()
+                await self.maintain_catalog()
             except Exception:
                 logger.exception("Full-audio recheck scan failed")
+
+    async def maintain_catalog(self):
+        """Subclass hook: background metadata refill shares the recheck cadence."""
 
     async def scan_due(self):
         room = self.queue.maxsize - self.queue.qsize()

@@ -1,3 +1,5 @@
+<block wx:if="{{limitedShare}}"><view class="timeline-preview"><text class="timeline-eyebrow">A SONG FOR YOU</text><view class="timeline-art">♫</view><text class="timeline-title">{{sharedTitle}}</text><text class="timeline-artist">{{sharedArtist}}</text><text class="timeline-note">与你分享这一段旋律</text><text class="timeline-caption">歌曲播放等交互在完整小程序中提供</text></view></block>
+<block wx:else>
 <view class="full-player"><view class="backdrop"><image wx:if="{{coverUrl && !coverBroken}}" class="background-cover" src="{{coverUrl}}" mode="aspectFill" binderror="coverFailed"/><view class="background-fallback" wx:else></view><view class="background-shade"></view></view>
 <view class="full-header" style="padding-top:{{statusTop}}px;padding-right:{{headerRight}}px"><button class="collapse" hover-class="collapse-pressed" aria-label="返回音乐页面" bindtap="back"><view class="collapse-chevron" aria-hidden="true"/></button><view class="header-copy"><text>听见 · 此刻正在听</text><text class="header-en">LISTEN & FEEL</text></view></view>
 <view class="track-info"><text class="full-title">{{title}}</text><text class="full-artist">{{artist}}</text><text wx:if="{{sourceName}}" class="full-source">{{sourceName}}</text></view>
@@ -19,13 +21,19 @@
       <image class="action-icon" src="/assets/icons/share.svg" mode="aspectFit" aria-hidden="true"/>
       <text class="action-label">分享</text>
     </button>
+    <button class="personal-action" hover-class="personal-action-pressed" bindtap="shareTimeline" disabled="{{!hasSong}}" aria-label="分享到朋友圈">
+      <image class="action-icon" src="/assets/icons/timeline.svg" mode="aspectFit" aria-hidden="true"/>
+      <text class="action-label">朋友圈</text>
+    </button>
   </view>
 <text wx:if="{{personalError}}" class="personal-error">{{personalError}}</text><text wx:if="{{lyricSource}}" class="lyric-credit">歌词来源 · {{lyricSource}}</text><view class="full-progress"><text>{{positionText}}</text><slider min="0" max="{{duration || 1}}" value="{{position}}" step="0.1" disabled="{{!duration || loading}}" bindchange="seek" activeColor="#ffffff" backgroundColor="#ffffff30" block-size="12"/><text>{{durationText}}</text></view><view class="full-buttons">
   <button class="control-button control-secondary" hover-class="control-pressed" aria-label="上一首" disabled="{{!hasSong || loading}}" bindtap="previous"><view class="control-skip" aria-hidden="true"><view class="skip-bar"/><view class="skip-triangle"/></view></button>
-  <button class="control-button full-play" hover-class="control-pressed" aria-label="{{loading ? '正在加载' : (playing ? '暂停' : '播放')}}" disabled="{{!hasSong || (loading && !failed)}}" bindtap="toggle">
-    <view wx:if="{{loading}}" class="control-spinner" aria-hidden="true"/>
-    <view wx:elif="{{playing}}" class="control-pause" aria-hidden="true"><view/><view/></view>
+  <button class="control-button full-play" hover-class="control-pressed" aria-label="{{continuing ? '暂停自动续播' : (loading ? '正在加载' : (playing ? '暂停' : '播放'))}}" disabled="{{!hasSong || (loading && !failed && !continuing)}}" bindtap="toggle">
+    <view wx:if="{{loading && !continuing}}" class="control-spinner" aria-hidden="true"/>
+    <view wx:elif="{{playing || continuing}}" class="control-pause" aria-hidden="true"><view/><view/></view>
     <view wx:else class="control-play" aria-hidden="true"/>
   </button>
   <button class="control-button control-secondary" hover-class="control-pressed" aria-label="下一首" disabled="{{!hasSong || loading}}" bindtap="next"><view class="control-skip control-skip-next" aria-hidden="true"><view class="skip-bar"/><view class="skip-triangle"/></view></button>
 </view><text wx:if="{{message && (loading || failed || queueEnded)}}" class="full-message">{{message}}</text><text wx:else class="full-footnote">给生活，留一点音乐的时间</text></view></view>
+
+</block>

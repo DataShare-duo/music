@@ -26,6 +26,14 @@ class SongView(BaseModel):
     play_source_name: str | None = None
 
 
+class SearchSourceStatus(BaseModel):
+    source: str
+    name: str
+    status: Literal["pending", "ok", "error"]
+    count: int = 0
+    stale: bool = False
+
+
 class SongList(BaseModel):
     items: list[SongView]
     count: int
@@ -34,6 +42,9 @@ class SongList(BaseModel):
     message: str | None = None
     page: int = 1
     has_more: bool = False
+    search_sources: list[SearchSourceStatus] = Field(default_factory=list)
+    collection_failed: bool = False
+    retry_after: int = 0
     updated_at: datetime | None = None
     verification_total: int = 0
     verification_pending: int = 0

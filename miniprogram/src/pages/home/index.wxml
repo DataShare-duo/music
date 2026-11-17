@@ -1,8 +1,10 @@
+<block wx:if="{{limitedShare}}"><view class="music-page"><text class="eyebrow">LISTEN & FEEL</text><text class="page-title">听见音乐</text><text class="hint">{{searched ? '与你分享音乐搜索：' + searched : '给生活留一点音乐的时间'}}</text><text class="hint">搜索、播放等交互在完整小程序中提供</text></view></block>
+<block wx:else>
 <view class="music-page">
   <view class="brand-row"><view class="brand-icon">♫</view><view class="brand-copy"><text class="brand-name">听见</text><text class="brand-caption">LISTEN & FEEL</text></view><button class="mine-entry" bindtap="mine" aria-label="我的个人空间"><image wx:if="{{avatar}}" src="{{avatar}}" mode="aspectFill"/><view wx:else class="avatar-person"/><text>我的</text></button></view>
   <view class="hero"><text class="eyebrow">● EVERYDAY, A NEW SOUND</text><text class="hero-title">把生活，调到
 喜欢的频率。</text><text class="hero-description">不必急着出发，先让一首歌陪着你
-从汽水音乐出发，遇见今天的好心情</text><button class="hero-action" bindtap="randomPlay" disabled="{{!items.length}}">▶　随心听一首</button><view class="record-decoration"><view class="record-core">听见</view></view><text class="record-caption">33⅓ RPM · SIDE A</text></view>
+从多种音源出发，遇见今天的好心情</text><button class="hero-action" bindtap="randomPlay" disabled="{{!items.length}}">▶　随心听一首</button><view class="record-decoration"><view class="record-core">听见</view></view><text class="record-caption">33⅓ RPM · SIDE A</text></view>
   <button class="search-entry" hover-class="search-entry-pressed" bindtap="openSearch" aria-label="搜索歌曲，按歌名或歌手查找">
     <view class="search-entry-lens" aria-hidden="true"/>
     <text class="search-entry-title">搜索歌曲、歌手</text>
@@ -24,3 +26,5 @@
 仅展示已验证完整版，暂不可用的歌曲将在复检通过后恢复。</text><text class="muted">作者：DataShare · 仅供个人非商业使用
 音量请使用手机系统按键调节</text><button class="outline" bindtap="diagnostics">服务检查与播放事件</button><button class="primary" bindtap="closeAbout">继续聆听</button></view></view>
 <player-bar/>
+
+</block>

@@ -116,7 +116,7 @@ test("home mood and search navigation encode keywords and subscriptions/polling 
   assert.equal(page.catalog.timer, undefined);
   page.onUnload();
 });
-test("search stays idle until submit, source switches issue one request and pagination uses submitted query", async () => {
+test("search stays idle until submit, aggregates without a selector and pagination uses submitted query", async () => {
   const { page } = make("search");
   page.onShow();
   await flush();
@@ -126,17 +126,15 @@ test("search stays idle until submit, source switches issue one request and pagi
   await flush();
   assert.equal(calls.length, 1);
   assert.ok(calls[0].path.includes("q=" + encodeURIComponent("陈奕迅")));
-  page.sourceChange({ detail: { value: "1" } });
-  await flush();
-  assert.equal(calls.length, 2);
-  assert.ok(calls[1].path.includes("source=netease"));
+  assert.equal(page.sourceChange, undefined);
+  assert.ok(!calls[0].path.includes("source="));
   page.setData({ query: "未提交内容" });
   page.nextPage();
   await flush();
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 2);
   assert.ok(
-    calls[2].path.includes("page=2") &&
-      calls[2].path.includes(encodeURIComponent("陈奕迅")),
+    calls[1].path.includes("page=2") &&
+      calls[1].path.includes(encodeURIComponent("陈奕迅")),
   );
   page.previousPage();
   await flush();
@@ -217,13 +215,12 @@ test("route decoding preserves special and literal encoded characters and tolera
         new URL(calls[0].path, "https://test.invalid").searchParams.get("q"),
         query,
       );
-      page.sourceChange({ detail: { value: "2" } });
       await flush();
       page.nextPage();
       await flush();
       const request = new URL(calls.at(-1).path, "https://test.invalid");
       assert.equal(request.searchParams.get("q"), query);
-      assert.equal(request.searchParams.get("source"), "kuwo");
+      assert.equal(request.searchParams.get("source"), null);
       assert.equal(request.searchParams.get("page"), "2");
     } finally {
       page.onHide();

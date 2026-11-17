@@ -1,3 +1,9 @@
+import type { SavedSong } from "../../services/personal";
+import {
+  shareToTimeline,
+  timelineCard,
+  isTimelinePreview,
+} from "../../services/sharing";
 import { shareCard, shareQuery, readShared } from "../../services/songs";
 import { routes } from "../../routes";
 import { MusicApp } from "../../app";
@@ -10,6 +16,9 @@ import { openHome } from "../../routes";
 Page({
   data: {
     title: "听见",
+    limitedShare: false,
+    sharedTitle: "分享的歌曲",
+    sharedArtist: "",
     favorite: false,
     liked: false,
     markLoading: false,
@@ -23,6 +32,7 @@ Page({
     loading: false,
     failed: false,
     queueEnded: false,
+    continuing: false,
     message: "",
     position: 0,
     duration: 0,
@@ -40,6 +50,7 @@ Page({
     retryAfter: 0,
     lyricScrollTop: 0,
   },
+  sharedSong: null as SavedSong | null,
   lyrics: null as LyricController | null,
   unsubscribe: null as (() => void) | null,
   visible: false,
@@ -49,6 +60,15 @@ Page({
   scrollGeneration: 0,
   onLoad(options: Record<string, string | undefined> = {}) {
     const shared = readShared(options);
+    if (isTimelinePreview()) {
+      this.sharedSong = shared;
+      this.setData({
+        limitedShare: true,
+        sharedTitle: shared?.title || "听见音乐",
+        sharedArtist: shared?.artist || "",
+      });
+      return;
+    }
     if (shared) {
       wx.redirectTo({ url: "/" + routes.song + "?" + shareQuery(shared) });
       return;
@@ -69,6 +89,7 @@ Page({
     this.lyrics = new LyricController(api, (state) => this.renderLyrics(state));
   },
   onShow() {
+    if (this.data.limitedShare) return;
     this.visible = true;
     this.personalUnsubscribe?.();
     const personal = getApp<MusicApp>().personal;
@@ -132,6 +153,7 @@ Page({
       loading: state.loading,
       failed: state.failed,
       queueEnded: state.queueEnded,
+      continuing: !!state.continuing,
       message: state.message,
       position: state.position,
       duration: state.duration,
@@ -262,16 +284,16 @@ Page({
     }
   },
   onShareAppMessage() {
-    return shareCard(getApp<MusicApp>().player?.state.current || null);
+    return shareCard(
+      this.sharedSong || getApp<MusicApp>().player?.state.current || null,
+    );
+  },
+  shareTimeline() {
+    shareToTimeline();
   },
   onShareTimeline() {
-    const song = getApp<MusicApp>().player?.state.current;
-    return {
-      title: song ? song.title + " · " + song.artist : "听见音乐",
-      query: song ? shareQuery(song) : "",
-      ...(song?.cover_url?.startsWith("https://")
-        ? { imageUrl: song.cover_url }
-        : {}),
-    };
+    return timelineCard(
+      this.sharedSong || getApp<MusicApp>().player?.state.current || null,
+    );
   },
 });

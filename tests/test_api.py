@@ -125,10 +125,10 @@ async def system(tmp_path):
 
 
 async def song_id(client, service):
-    response = await client.get("/api/search", params={"q": "test"})
+    response = await client.get("/api/search", params={"q": "test", "source": "soda"})
     assert response.status_code == 200
     await service.wait_for_idle()
-    response = await client.get("/api/search", params={"q": "test"})
+    response = await client.get("/api/search", params={"q": "test", "source": "soda"})
     assert response.json()["items"], response.text
     service.providers.resolutions.clear()
     return response.json()["items"][0]["id"]
@@ -142,15 +142,15 @@ async def playback(client, id_, request_id=None):
 
 async def test_search_is_background_only_verified_and_cached(system):
     client, service, providers, _ = system
-    first = (await client.get("/api/search", params={"q": "test"})).json()
+    first = (await client.get("/api/search", params={"q": "test", "source": "soda"})).json()
     assert first["items"] == [] and first["refreshing"]
     await service.wait_for_idle()
-    data = (await client.get("/api/search", params={"q": "test"})).json()
+    data = (await client.get("/api/search", params={"q": "test", "source": "soda"})).json()
     assert len(data["items"]) == data["verification_available"] == 20
     assert all(t["audio_kind"] == "full" for t in data["items"])
     assert "url" not in data["items"][0]
     assert len(providers.searches) == 1
-    for params in ({"q": "test", "page": 2}, {"q": "test", "source": "netease"}):
+    for params in ({"q": "test", "source": "soda", "page": 2}, {"q": "test", "source": "netease"}):
         await client.get("/api/search", params=params)
     await service.wait_for_idle()
     assert len(providers.searches) == 3
@@ -170,10 +170,10 @@ async def test_search_stale_and_failure_cooldown(system):
         cached.expires_at = now() - timedelta(seconds=1)
         await db.commit()
     providers.search_error = True
-    result = (await client.get("/api/search", params={"q": "test"})).json()
+    result = (await client.get("/api/search", params={"q": "test", "source": "soda"})).json()
     assert result["stale"] and len(result["items"]) == 20
     await service.wait_for_idle()
-    result = (await client.get("/api/search", params={"q": "test"})).json()
+    result = (await client.get("/api/search", params={"q": "test", "source": "soda"})).json()
     assert result["stale"] and len(result["items"]) == 20
     assert len(providers.searches) == 2
 
@@ -181,9 +181,11 @@ async def test_search_stale_and_failure_cooldown(system):
 async def test_empty_search_failure_and_invalid_query(system):
     client, service, providers, _ = system
     providers.search_error = True
-    assert (await client.get("/api/search", params={"q": "none"})).status_code == 200
+    assert (
+        await client.get("/api/search", params={"q": "none", "source": "soda"})
+    ).status_code == 200
     await service.wait_for_idle()
-    result = (await client.get("/api/search", params={"q": "none"})).json()
+    result = (await client.get("/api/search", params={"q": "none", "source": "soda"})).json()
     assert result["items"] == [] and not result["refreshing"]
     assert len(providers.searches) == 1
     assert (await client.get("/api/search", params={"q": " "})).status_code == 400
@@ -277,7 +279,9 @@ async def test_resolve_failure_hides_song_and_preserves_statistics(system):
         assert (await db.get(SongStats, id_)).listen_count == 0
     assert id_ not in [
         song["id"]
-        for song in (await client.get("/api/search", params={"q": "test"})).json()["items"]
+        for song in (
+            await client.get("/api/search", params={"q": "test", "source": "soda"})
+        ).json()["items"]
     ]
 
 
@@ -483,7 +487,7 @@ async def test_verified_fallback_source_reported_and_refresh_cannot_switch(syste
     id_ = await song_id(client, service)
     pb = (await playback(client, id_)).json()
     assert pb["play_source"] == "netease" and pb["play_source_name"] == "网易云音乐"
-    response = await client.get("/api/search", params={"q": "test"})
+    response = await client.get("/api/search", params={"q": "test", "source": "soda"})
     listed = next(item for item in response.json()["items"] if item["id"] == id_)
     assert listed["source"] == "soda"
     assert listed["play_source"] == "netease" and listed["play_source_name"] == "网易云音乐"
@@ -507,7 +511,9 @@ async def test_verified_fallback_source_reported_and_refresh_cannot_switch(syste
     # Only background recheck can restore the song using the newly available official source
     await service.scan_due()
     await service.wait_for_idle()
-    items = (await client.get("/api/search", params={"q": "test"})).json()["items"]
+    items = (await client.get("/api/search", params={"q": "test", "source": "soda"})).json()[
+        "items"
+    ]
     assert id_ in [item["id"] for item in items]
     restored = (await playback(client, id_)).json()
     assert restored["play_source_name"] == "汽水音乐"

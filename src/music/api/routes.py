@@ -23,7 +23,9 @@ async def sources(request: Request):
 
 
 @router.get("/home", response_model=SongList)
-async def home(request: Request, ids: str | None = Query(default=None, max_length=1200)):
+async def home(
+    request: Request, ids: str | None = Query(default=None, max_length=1200), refill: bool = False
+):
     from music.core.errors import AppError
 
     selected = None
@@ -34,14 +36,14 @@ async def home(request: Request, ids: str | None = Query(default=None, max_lengt
             raise AppError("invalid_ids", "推荐列表参数无效", 400) from exc
         if len(selected) > 100 or any(value <= 0 or value > 2**63 - 1 for value in selected):
             raise AppError("invalid_ids", "推荐列表参数无效", 400)
-    return await request.app.state.service.home(selected)
+    return await request.app.state.service.home(selected, refill=refill)
 
 
 @router.get("/search", response_model=SongList)
 async def search(
     request: Request,
     q: str = Query(min_length=1, max_length=100),
-    source: str = "soda",
+    source: str = "all",
     page: int = Query(default=1, ge=1, le=100),
 ):
     from music.core.errors import AppError

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import math
 from datetime import timedelta
 from uuid import uuid4
 
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 class MusicService(CatalogService):
     async def _refresh_search(self, key, source, query, page, cached):
         try:
+            if source == "all":
+                return await self._refresh_all_search(key, query, page, cached)
             tracks = await self.providers.search(source, query, page, 20)
             ids = await self.upsert_tracks(tracks)
             await self.set_cache(
@@ -42,8 +45,78 @@ class MusicService(CatalogService):
             value.update(message="歌曲搜索暂时失败，冷却后自动重试", failed=True)
             await self.set_cache(key, value, self.settings.failure_cooldown)
 
+    async def _refresh_all_search(self, key, query, page, cached):
+        # Four results from each source form a true 20-candidate aggregate page.
+        previous = cached.value if cached else {}
+        by_source = {
+            source: list(previous.get("by_source", {}).get(source, [])) for source in SOURCE_NAMES
+        }
+        states = {
+            source: {
+                "source": source,
+                "name": name,
+                "status": "pending",
+                "count": 0,
+                "stale": bool(by_source[source]),
+            }
+            for source, name in SOURCE_NAMES.items()
+        }
+        more, errors = {}, {}
+
+        async def publish():
+            async with self.locks.get("publish:" + key):
+                ids = list(
+                    dict.fromkeys(
+                        track
+                        for index in range(4)
+                        for source in SOURCE_NAMES
+                        for track in by_source[source][index : index + 1]
+                    )
+                )
+                value = {
+                    "ids": ids,
+                    "by_source": dict(by_source),
+                    "search_sources": [dict(state) for state in states.values()],
+                    "has_more": any(more.values()),
+                    "failed": bool(errors),
+                    "stale": any(state["stale"] for state in states.values()),
+                }
+                if errors:
+                    value["message"] = "部分音乐来源暂不可用，已展示其他来源或对应旧缓存"
+                await self.set_cache(
+                    key,
+                    value,
+                    self.settings.failure_cooldown if errors else self.settings.search_ttl,
+                )
+
+        async def one(source):
+            async with self.search_source_slots:
+                try:
+                    tracks = await self.providers.search(source, query, page, 4)
+                    ids = await self.upsert_tracks(tracks[:4])
+                    by_source[source] = ids
+                    more[source] = len(tracks) >= 4
+                    states[source].update(status="ok", count=len(ids), stale=False)
+                    await self.enqueue(ids)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    errors[source] = exc.code if isinstance(exc, AppError) else "upstream_error"
+                    more[source] = bool(previous.get("has_more"))
+                    states[source].update(
+                        status="error", count=len(by_source[source]), stale=bool(by_source[source])
+                    )
+                    if not isinstance(exc, AppError):
+                        logger.exception("Aggregate metadata source failed: %s", source)
+                await publish()
+
+        await publish()
+        async with asyncio.TaskGroup() as group:
+            for source in SOURCE_NAMES:
+                group.create_task(one(source))
+
     async def search(self, source, query, page):
-        if source not in SOURCE_NAMES:
+        if source != "all" and source not in SOURCE_NAMES:
             raise AppError("invalid_source", "不支持的音乐来源", 400)
         key = "search:" + hashlib.sha256(f"{source}:{query}:{page}".encode()).hexdigest()
         async with self.locks.get(key):
@@ -51,7 +124,14 @@ class MusicService(CatalogService):
             task = self.search_tasks.get(key)
             running = bool(task and not task.done())
             overloaded = False
-            if not running and (not cached or cached.expires_at <= now()):
+            incomplete = bool(
+                cached
+                and not cached.value.get("failed")
+                and any(
+                    row.get("status") == "pending" for row in cached.value.get("search_sources", [])
+                )
+            )
+            if not running and (not cached or cached.expires_at <= now() or incomplete):
                 if len(self.search_tasks) >= self.settings.search_task_limit:
                     if not cached:
                         raise busy()
@@ -75,11 +155,19 @@ class MusicService(CatalogService):
             return SongList(
                 items=items,
                 count=len(items),
+                search_sources=cached.value.get("search_sources", []) if cached else [],
                 page=page,
                 has_more=cached.value.get("has_more", False) if cached else False,
                 refreshing=refreshing,
                 stale=overloaded
-                or bool(cached and (cached.expires_at <= now() or cached.value.get("failed"))),
+                or bool(
+                    cached
+                    and (
+                        cached.expires_at <= now()
+                        or cached.value.get("failed")
+                        or cached.value.get("stale")
+                    )
+                ),
                 message=message,
                 updated_at=cached.updated_at if cached else None,
                 **progress,
@@ -99,13 +187,18 @@ class MusicService(CatalogService):
             )
         )
 
-    async def home(self, ids=None):
+    async def home(self, ids=None, *, refill=False):
         cached = await self.cache("catalog:all")
+        items = await self.songs(home=True)
         if (not self.catalog_task or self.catalog_task.done()) and (
-            not cached or cached.expires_at <= now()
+            not cached
+            or cached.expires_at <= now()
+            or (
+                (refill or not items)
+                and (now() - cached.updated_at).total_seconds() >= self.settings.failure_cooldown
+            )
         ):
             self.catalog_task = asyncio.create_task(self.refresh_catalog(), name="catalog-refresh")
-        items = await self.songs(home=True)
         if ids is not None:
             async with self.db.sessions() as db:
                 eligible = set(
@@ -126,8 +219,18 @@ class MusicService(CatalogService):
         )
         message = "正在验证可播放歌曲" if refreshing and not items else None
         if not items and not refreshing:
-            message = "暂未找到可确认完整版的歌曲，系统会定期重新检查"
+            message = (
+                cached.value.get("message") if cached else None
+            ) or "暂未找到可确认完整版的歌曲，系统会定期重新检查"
         return SongList(
+            collection_failed=bool(
+                cached
+                and cached.value.get("network_failed")
+                and not (self.catalog_task and not self.catalog_task.done())
+            ),
+            retry_after=max(3, math.ceil((cached.expires_at - now()).total_seconds()))
+            if cached and not items and not refreshing
+            else 3,
             items=items,
             count=len(items),
             refreshing=refreshing,
@@ -137,55 +240,97 @@ class MusicService(CatalogService):
             **progress,
         )
 
+    async def maintain_catalog(self):
+        if self.closing or (self.catalog_task and not self.catalog_task.done()):
+            return
+        cached = await self.cache("catalog:all")
+        if not cached or cached.value.get("network_failed"):
+            return
+        if (now() - cached.updated_at).total_seconds() < self.settings.failure_cooldown:
+            return
+        async with self.db.sessions() as db:
+            count = await db.scalar(
+                select(func.count())
+                .select_from(Song)
+                .where(Song.recommended.is_(True), Song.verification_state == "available")
+            )
+        if (
+            count < self.settings.catalog_target
+            and not self.closing
+            and (not self.catalog_task or self.catalog_task.done())
+        ):
+            self.catalog_task = asyncio.create_task(
+                self.refresh_catalog(), name="catalog-background-refill"
+            )
+
     async def refresh_catalog(self):
-        errors = []
-        successes = 0
-        count = 0
         async with self.locks.get("catalog:all"):
-            try:
-                for source in SOURCE_NAMES:
-                    for page in (1, 2, 3):
-                        for keyword in self.settings.keywords:
-                            try:
-                                tracks = await self.providers.search(source, keyword, page, 20)
-                                ids = await self.upsert_tracks(tracks, recommended=True)
-                                await self.enqueue(ids)
-                                successes += 1
-                            except AppError as exc:
-                                errors.append(f"{SOURCE_NAMES[source]}：{exc.message}")
-                            async with self.db.sessions() as db:
-                                count = await db.scalar(
-                                    select(func.count())
-                                    .select_from(Song)
-                                    .where(
-                                        Song.recommended.is_(True),
-                                        Song.verification_state == "available",
-                                    )
-                                )
-                            if count >= self.settings.catalog_target:
-                                break
-                            await asyncio.sleep(0.15)
-                        if count >= self.settings.catalog_target:
-                            break
-                    if count >= self.settings.catalog_target:
-                        break
+            cached = await self.cache("catalog:all")
+            cursor = int(cached.value.get("next_cursor", 0)) if cached else 0
+            sources, keywords = list(SOURCE_NAMES), self.settings.keywords
+            if not keywords:
                 await self.set_cache(
                     "catalog:all",
-                    {
-                        "failed": bool(errors) and successes == 0,
-                        "message": errors[-1] if errors else None,
-                    },
-                    self.settings.catalog_ttl if successes else self.settings.failure_cooldown,
-                )
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception("Catalog refresh failed")
-                await self.set_cache(
-                    "catalog:all",
-                    {"failed": True, "message": "多来源推荐曲库采集异常，请稍后自动重试"},
+                    {"failed": True, "message": "请配置推荐关键词"},
                     self.settings.failure_cooldown,
                 )
+                return
+            successes, codes, count = 0, [], 0
+            # Fair bounded batches, continued cursor, and cooldown prevent hot loops.
+            for _ in range(10):
+                async with self.db.sessions() as db:
+                    pending = await db.scalar(
+                        select(func.count())
+                        .select_from(Song)
+                        .where(
+                            Song.recommended.is_(True),
+                            Song.verification_state.in_(("pending", "verifying")),
+                        )
+                    )
+                if pending >= min(
+                    self.settings.catalog_target, self.settings.verification_queue_size
+                ):
+                    break
+                source = sources[cursor % len(sources)]
+                keyword = keywords[(cursor // len(sources)) % len(keywords)]
+                page = (cursor // (len(sources) * len(keywords))) % 100 + 1
+                cursor += 1
+                try:
+                    tracks = await self.providers.search(source, keyword, page, 20)
+                    ids = await self.upsert_tracks(tracks, recommended=True)
+                    await self.enqueue(ids)
+                    successes += 1
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    codes.append(exc.code if isinstance(exc, AppError) else "upstream_error")
+                    if not isinstance(exc, AppError):
+                        logger.exception("Recommendation source failed: %s", source)
+                async with self.db.sessions() as db:
+                    count = await db.scalar(
+                        select(func.count())
+                        .select_from(Song)
+                        .where(Song.recommended.is_(True), Song.verification_state == "available")
+                    )
+                if count >= self.settings.catalog_target:
+                    break
+                await asyncio.sleep(0.15)
+            failed = successes == 0 and bool(codes)
+            value = {
+                "failed": failed,
+                "network_failed": failed
+                and all(code in {"upstream_timeout", "upstream_network"} for code in codes),
+                "next_cursor": cursor,
+            }
+            if failed:
+                value["message"] = "推荐音源暂不可用，系统会在冷却后继续采集"
+            await self.set_cache(
+                "catalog:all",
+                value,
+                self.settings.catalog_ttl
+                if count >= self.settings.catalog_target and not failed
+                else self.settings.failure_cooldown,
+            )
 
     def playback_view(self, pb):
         source = pb.play_source

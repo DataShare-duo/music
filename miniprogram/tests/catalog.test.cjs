@@ -14,7 +14,7 @@ const deferred = () => {
 };
 const flush = () => new Promise((r) => setImmediate(r));
 
-test("keyword/source/page transitions ignore old request responses", async () => {
+test("keyword/page transitions ignore old request responses", async () => {
   const pending = [];
   const api = {
     get: (path) => {
@@ -29,8 +29,9 @@ test("keyword/source/page transitions ignore old request responses", async () =>
     () => 7,
   );
   catalog.resume();
-  catalog.change("search", "陈奕迅", "netease", 2);
-  assert.match(pending[1].path, /source=netease&page=2/);
+  catalog.change("search", "陈奕迅", 2);
+  assert.match(pending[1].path, /page=2/);
+  assert.ok(!pending[1].path.includes("source="));
   pending[1].resolve(result("new"));
   await flush();
   pending[0].resolve(result("old"));
@@ -107,7 +108,7 @@ test("resume is idempotent while visible and never duplicates submitted search",
   catalog.resume();
   await flush();
   assert.equal(calls, 1);
-  catalog.change("search", "one", "kuwo", 1);
+  catalog.change("search", "one", 1);
   catalog.resume();
   await flush();
   assert.equal(calls, 2);

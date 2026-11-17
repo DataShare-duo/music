@@ -372,7 +372,7 @@ page {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 520rpx;
+  max-width: 670rpx;
   margin: 4rpx auto 18rpx;
   padding: 0;
   border: 0;
@@ -394,7 +394,10 @@ page {
   color: #e5e8df;
   background: transparent;
   line-height: 1;
-  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    background 0.15s ease;
 }
 .personal-action::after {
   border: 0;
@@ -434,4 +437,53 @@ page {
   color: #ffdfc5;
   font-size: 20rpx;
   line-height: 1.6;
+}
+
+.timeline-preview {
+  padding: 100rpx 48rpx 60rpx;
+  text-align: center;
+}
+.timeline-eyebrow {
+  display: block;
+  color: #ffffff70;
+  letter-spacing: 4rpx;
+  font-size: 21rpx;
+}
+.timeline-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 260rpx;
+  height: 260rpx;
+  border-radius: 32rpx;
+  margin: 60rpx auto 40rpx;
+  background: #ffffff0d;
+  color: #c9d1b9;
+  font-size: 100rpx;
+}
+.timeline-title {
+  display: block;
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.timeline-artist {
+  display: block;
+  margin-top: 16rpx;
+  color: #ffffffa0;
+  font-size: 27rpx;
+}
+.timeline-note {
+  display: block;
+  margin-top: 50rpx;
+  color: #d9c4a9;
+  font-size: 27rpx;
+}
+.timeline-caption {
+  display: block;
+  margin-top: 24rpx;
+  color: #ffffff70;
+  font-size: 22rpx;
+  line-height: 1.8;
 }

@@ -675,23 +675,6 @@ text {
   line-height: 2.6;
   flex-shrink: 0;
 }
-.source-selector {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 22rpx 24rpx;
-  border-top: 1rpx solid #f0ece2;
-  color: #a5ac95;
-  font-size: 22rpx;
-}
-.source-selector view {
-  display: flex;
-  gap: 22rpx;
-  color: #7f8d6a;
-}
-.chevron {
-  color: #a6ad96;
-}
 .suggestions {
   padding-top: 34rpx;
 }

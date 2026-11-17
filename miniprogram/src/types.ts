@@ -21,6 +21,15 @@ export interface SongList {
   page: number;
   has_more: boolean;
   verification_pending: number;
+  collection_failed?: boolean;
+  retry_after?: number;
+  search_sources?: {
+    source: Source;
+    name: string;
+    status: "pending" | "ok" | "error";
+    count: number;
+    stale: boolean;
+  }[];
 }
 export interface Playback {
   id: string;

@@ -1,3 +1,4 @@
+import { isTimelinePreview } from "./services/sharing";
 import { PersonalStore } from "./services/personal";
 import { config } from "./config";
 import { openHome } from "./routes";
@@ -16,6 +17,8 @@ App({
   player: null as NativePlayer | null,
   startupError: "",
   onLaunch() {
+    // Timeline preview has no login, cloud calls or background audio capability.
+    if (isTimelinePreview()) return;
     if (!wx.cloud || !wx.getBackgroundAudioManager) {
       this.startupError = "当前微信缺少云调用或后台音频能力，请更新微信";
       return;
@@ -39,6 +42,7 @@ App({
     openHome();
   },
   onShow() {
+    if (isTimelinePreview()) return;
     void this.personal?.sync().then(() => this.personal?.loadAvatar());
     if (this.personalTimer) clearInterval(this.personalTimer);
     this.personalTimer = setInterval(() => {

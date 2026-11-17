@@ -29,7 +29,9 @@ test("native search and player attributes use real operators, brand text does no
   ])
     assert.doesNotThrow(() => checkTemplate(text, name));
   assert.ok(source.includes("{{page <= 1 || loading}}"));
-  assert.ok(player.includes("{{!hasSong || (loading && !failed)}}"));
+  assert.ok(
+    player.includes("{{!hasSong || (loading && !failed && !continuing)}}"),
+  );
   assert.ok(home.includes("LISTEN & FEEL") && !home.includes("&amp;"));
   assert.ok(!home.includes("第一阶段") && !home.includes("真机直连验证版"));
 });
@@ -96,12 +98,20 @@ test("fullscreen controls use geometric icons with state, accessibility and touc
   assert.doesNotThrow(() => checkTemplate(markup, "full-player"));
   assert.match(markup, /aria-label="返回音乐页面" bindtap="back"/);
   assert.ok(markup.includes('class="collapse-chevron"'));
-  assert.ok(markup.includes('wx:if="{{loading}}" class="control-spinner"'));
-  assert.ok(markup.includes('wx:elif="{{playing}}" class="control-pause"'));
+  assert.ok(
+    markup.includes(
+      'wx:if="{{loading && !continuing}}" class="control-spinner"',
+    ),
+  );
+  assert.ok(
+    markup.includes(
+      'wx:elif="{{playing || continuing}}" class="control-pause"',
+    ),
+  );
   assert.ok(markup.includes('wx:else class="control-play"'));
   assert.ok(
     markup.includes(
-      "aria-label=\"{{loading ? '正在加载' : (playing ? '暂停' : '播放')}}\"",
+      "aria-label=\"{{continuing ? '暂停自动续播' : (loading ? '正在加载' : (playing ? '暂停' : '播放'))}}\"",
     ),
   );
   assert.ok(markup.includes('class="control-skip control-skip-next"'));
@@ -111,7 +121,9 @@ test("fullscreen controls use geometric icons with state, accessibility and touc
     assert.ok(controls.includes('bindtap="' + action + '"'));
   }
   assert.ok(
-    controls.includes('disabled="{{!hasSong || (loading && !failed)}}"'),
+    controls.includes(
+      'disabled="{{!hasSong || (loading && !failed && !continuing)}}"',
+    ),
   );
   assert.equal(
     controls.split('disabled="{{!hasSong || loading}}"').length - 1,
@@ -153,30 +165,61 @@ test("fullscreen back is a small left chevron without a circle and keeps the tra
 
 test("personal actions use flat vector icons without nested cards, circles or font glyphs", async () => {
   const root = path.resolve(__dirname, "../src");
-  const markup = await fs.readFile(path.join(root, "pages/player/index.wxml"), "utf8");
-  const css = await fs.readFile(path.join(root, "pages/player/index.wxss"), "utf8");
+  const markup = await fs.readFile(
+    path.join(root, "pages/player/index.wxml"),
+    "utf8",
+  );
+  const css = await fs.readFile(
+    path.join(root, "pages/player/index.wxss"),
+    "utf8",
+  );
   const rule = (selector) => {
     const start = css.indexOf(selector + " {");
     assert.notEqual(start, -1, selector);
     return css.slice(start, css.indexOf("}", start));
   };
-  const actions = markup.slice(markup.indexOf('<view class="personal-actions">'), markup.indexOf('<text wx:if="{{personalError}}"'));
-  assert.equal((actions.match(/class="action-icon"/g) || []).length, 3);
-  assert.equal((actions.match(/class="action-label"/g) || []).length, 3);
-  assert.equal((actions.match(/hover-class="personal-action-pressed"/g) || []).length, 3);
+  const actions = markup.slice(
+    markup.indexOf('<view class="personal-actions">'),
+    markup.indexOf('<text wx:if="{{personalError}}"'),
+  );
+  assert.equal((actions.match(/class="action-icon"/g) || []).length, 4);
+  assert.equal((actions.match(/class="action-label"/g) || []).length, 4);
+  assert.equal(
+    (actions.match(/hover-class="personal-action-pressed"/g) || []).length,
+    4,
+  );
   assert.equal((actions.match(/bindtap="toggleMark"/g) || []).length, 2);
   assert.ok(actions.includes('open-type="share"'));
   assert.ok(actions.includes('aria-label="分享歌曲"'));
   assert.ok(actions.includes("已收藏") && actions.includes("已喜欢"));
   assert.ok(actions.includes('disabled="{{!hasSong || markLoading}}"'));
   assert.ok(!/[☆★♡♥↗]/u.test(actions));
-  for (const name of ["star", "star-filled", "heart", "heart-filled", "share"]) {
+  for (const name of [
+    "star",
+    "star-filled",
+    "heart",
+    "heart-filled",
+    "share",
+    "timeline",
+  ]) {
     assert.ok(actions.includes("/assets/icons/" + name + ".svg"));
-    const icon = await fs.readFile(path.join(root, "assets/icons", name + ".svg"), "utf8");
+    const icon = await fs.readFile(
+      path.join(root, "assets/icons", name + ".svg"),
+      "utf8",
+    );
     assert.ok(icon.includes('viewBox="0 0 24 24"'));
     assert.ok(icon.includes('stroke-width="1.7"'));
-    assert.ok(!icon.includes("<text") && !icon.includes("<script") && !icon.includes("<circle"));
-    assert.ok(await fs.readFile(path.join(__dirname, "../dist/assets/icons", name + ".svg"), "utf8"));
+    assert.ok(
+      !icon.includes("<text") &&
+        !icon.includes("<script") &&
+        !icon.includes("<circle"),
+    );
+    assert.ok(
+      await fs.readFile(
+        path.join(__dirname, "../dist/assets/icons", name + ".svg"),
+        "utf8",
+      ),
+    );
   }
   for (const selector of [".personal-actions", ".personal-action"]) {
     assert.match(rule(selector), /background: transparent/);
@@ -186,7 +229,10 @@ test("personal actions use flat vector icons without nested cards, circles or fo
   assert.match(rule(".personal-action"), /min-height: 104rpx/);
   assert.match(rule(".action-icon"), /width: 40rpx/);
   assert.ok(!rule(".action-icon").includes("border"));
-  assert.ok(!css.includes(".action-star::before") && !css.includes(".action-heart::before"));
+  assert.ok(
+    !css.includes(".action-star::before") &&
+      !css.includes(".action-heart::before"),
+  );
   assert.match(rule(".favorite-selected"), /#f7cc88/);
   assert.match(rule(".like-selected"), /#f4a6b2/);
   assert.match(rule(".personal-action-pressed"), /scale\(0\.94\)/);

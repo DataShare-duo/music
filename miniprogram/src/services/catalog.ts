@@ -1,4 +1,4 @@
-import { Api, SongList, Source } from "../types";
+import { Api, SongList } from "../types";
 
 export interface CatalogState {
   result: SongList | null;
@@ -15,7 +15,6 @@ export class Catalog {
   };
   mode: "home" | "search" = "home";
   query = "";
-  source: Source = "soda";
   page = 1;
   private active = false;
   private generation = 0;
@@ -42,15 +41,9 @@ export class Catalog {
     ++this.generation;
     this.clear();
   }
-  change(
-    mode: "home" | "search",
-    query = "",
-    source: Source = "soda",
-    page = 1,
-  ): void {
+  change(mode: "home" | "search", query = "", page = 1): void {
     this.mode = mode;
     this.query = query.trim();
-    this.source = source;
     this.page = page;
     this.state.result = null;
     if (this.active) void this.load(true);
@@ -73,8 +66,6 @@ export class Catalog {
       path =
         "/api/search?q=" +
         encodeURIComponent(this.query) +
-        "&source=" +
-        this.source +
         "&page=" +
         this.page;
     else if (!shuffle && this.state.result?.items.length)

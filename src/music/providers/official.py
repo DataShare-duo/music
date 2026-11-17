@@ -458,6 +458,10 @@ class ProviderManager:
             raise
         except requests.Timeout as exc:
             raise AppError("upstream_timeout", "音乐平台响应超时，请稍后重试", 504) from exc
+        except requests.ConnectionError as exc:
+            raise AppError(
+                "upstream_network", "音乐平台网络连接失败，请检查网络后重试", 502
+            ) from exc
         except requests.HTTPError as exc:
             status = exc.response.status_code if exc.response is not None else 502
             code = (
