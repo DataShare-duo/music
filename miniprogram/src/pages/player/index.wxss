@@ -98,6 +98,25 @@ page {
   color: #ffffff65;
   margin-top: 4rpx;
 }
+.song-viewport {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.song-motion {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  transition-property: transform, opacity;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform, opacity;
+}
 .listening-stage {
   position: relative;
   z-index: 1;

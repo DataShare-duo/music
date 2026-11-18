@@ -144,21 +144,9 @@ test("full page subscribes without new playback, centres active lyric and exits 
   page.followLyrics();
   assert.equal(page.data.following, true);
   page.toggle();
-  const point = (y) => ({ identifier: 1, clientX: 180, clientY: y });
-  for (const [start, end] of [
-    [300, 180],
-    [180, 300],
-  ]) {
-    page.swipeStart({ touches: [point(start)], timeStamp: 10 });
-    page.swipeEnd({
-      changedTouches: [point(end)],
-      touches: [],
-      timeStamp: 200,
-    });
-  }
   page.seek({ detail: { value: 30 } });
   page.back();
-  assert.deepEqual(actions, ["toggle", 1, -1, 30, "back"]);
+  assert.deepEqual(actions, ["toggle", 30, "back"]);
   page.onHide();
   assert.equal(listeners.size, 0);
   assert.equal(page.lyrics.visible, false);

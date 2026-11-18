@@ -192,4 +192,6 @@ uv run python scripts/check_live.py --source kuwo --query 纯音乐 --direct
 
 ## 播放页布局与手势
 
-0.6.1 使用大图标收藏／喜欢／分享、上划下一首与下划上一首，底部增加歌词切换和当前队列，详见 [播放页布局与手势](player-interactions.md)
+0.6.1 使用大图标收藏／喜欢／分享、上划下一首与下划上一首，底部增加歌词切换和此刻歌单，详见 [播放页布局与手势](player-interactions.md)
+
+0.6.2 为上下划切歌增加跟手移动、未达标回弹和滑出／滑入动画，底部控件保持固定，不涉及后端或数据库更新，真机检查项见 [播放页布局与手势](player-interactions.md)

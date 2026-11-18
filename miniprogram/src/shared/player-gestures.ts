@@ -9,26 +9,41 @@ export class TrackSwipe {
   private origin: TouchPoint | null = null;
   private startedAt = 0;
 
-  start(touches: readonly TouchPoint[], at: number): void {
+  start(touches: readonly TouchPoint[], at: number): boolean {
     this.cancel();
-    if (touches.length !== 1) return;
+    if (touches.length !== 1 || !Number.isFinite(at)) return false;
     const point = touches[0];
     if (!Number.isFinite(point.clientX) || !Number.isFinite(point.clientY))
-      return;
+      return false;
     this.origin = { ...point };
     this.startedAt = at;
+    return true;
   }
 
-  move(touches: readonly TouchPoint[]): void {
-    if (!this.origin) return;
+  move(touches: readonly TouchPoint[], at?: number): number | null {
+    if (!this.origin) return null;
     const point = touches[0];
-    if (touches.length !== 1 || point.identifier !== this.origin.identifier) {
+    if (
+      touches.length !== 1 ||
+      point.identifier !== this.origin.identifier ||
+      !Number.isFinite(point.clientX) ||
+      !Number.isFinite(point.clientY) ||
+      (at !== undefined &&
+        (!Number.isFinite(at) ||
+          at - this.startedAt > 900 ||
+          at < this.startedAt))
+    ) {
       this.cancel();
-      return;
+      return null;
     }
     const x = Math.abs(point.clientX - this.origin.clientX);
-    const y = Math.abs(point.clientY - this.origin.clientY);
-    if (x > 36 && x > y * 1.2) this.cancel();
+    const dy = point.clientY - this.origin.clientY;
+    const y = Math.abs(dy);
+    if (x > 36 && x > y * 1.2) {
+      this.cancel();
+      return null;
+    }
+    return y >= 6 && y >= x * 1.5 ? dy : 0;
   }
 
   end(

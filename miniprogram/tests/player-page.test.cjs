@@ -69,12 +69,23 @@ function setup() {
 }
 test("page gestures skip once and ignore loading, hidden pages and a changed playback session", () => {
   const { page, state } = setup();
+  const { TestClock } = require("./helpers/clock.cjs");
+  const { TrackTransition } = require("../dist/shared/player-transition.js");
+  const clock = new TestClock();
+  page.motion = new TrackTransition(
+    (frame, done) => page.renderMotion(frame, done),
+    clock,
+  );
+  page.swipeHeight = 400;
   const flick = () => {
     page.swipeStart(touch(250));
     page.swipeEnd(touch(100, 200, true));
   };
   flick();
   page.swipeEnd(touch(100, 201, true));
+  assert.equal(page.data.transitionPhase, "leaving");
+  assert.deepEqual(selected, []);
+  clock.tick(188);
   assert.deepEqual(selected, [1]);
   state.loading = true;
   flick();
@@ -191,7 +202,7 @@ test("only artwork and song metadata capture switching gestures, not lyrics, sli
     );
   }
   assert.ok(!source.includes('class="full-player" bindtouchstart'));
-  assert.ok(source.includes('bindtouchcancel="cancelSwipe"'));
+  assert.ok(source.includes('bindtouchcancel="swipeCancel"'));
   assert.ok(!source.includes('bindtap="shareTimeline"'));
 });
 

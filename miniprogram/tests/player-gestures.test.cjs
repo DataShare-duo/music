@@ -48,3 +48,24 @@ test("cancel, multi-touch and horizontal-first gestures cannot turn into a late 
   gesture.start([point(100, 200)], 10);
   assert.equal(gesture.end([point(100, 50)], 1, 200), 0);
 });
+
+test("move reports finite vertical distance for presentation, but rejects horizontal, multi-touch and expired movement", () => {
+  const gesture = new TrackSwipe();
+  assert.equal(gesture.start([point(100, 200)], 10), true);
+  assert.equal(gesture.move([point(104, 180)], 100), -20);
+  assert.equal(gesture.move([point(100, 230)], 200), 30);
+  assert.equal(gesture.end([point(100, 300)], 0, 300), -1);
+  for (const invalid of [
+    [point(NaN, 100)],
+    [point(100, Infinity)],
+    [point(200, 200)],
+    [point(100, 100), point(110, 110, 2)],
+  ]) {
+    gesture.start([point(100, 200)], 10);
+    assert.equal(gesture.move(invalid, 100), null);
+    assert.equal(gesture.end([point(100, 100)], 0, 200), 0);
+  }
+  gesture.start([point(100, 200)], 10);
+  assert.equal(gesture.move([point(100, 100)], 911), null);
+  assert.equal(gesture.start([point(100, 200)], NaN), false);
+});

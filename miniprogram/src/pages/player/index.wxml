@@ -20,36 +20,41 @@
       <view class="header-copy"><text>听见 · 此刻正在听</text><text class="header-en">LISTEN & FEEL</text></view>
     </view>
 
-    <view class="listening-stage">
-      <view wx:if="{{!lyricsVisible}}" class="artwork-stage" bindtouchstart="swipeStart" catchtouchmove="swipeMove" bindtouchend="swipeEnd" bindtouchcancel="cancelSwipe">
-        <view class="artwork-frame">
-          <image wx:if="{{coverUrl && !coverBroken}}" class="song-artwork" src="{{coverUrl}}" mode="aspectFill" binderror="coverFailed"/>
-          <view wx:else class="artwork-placeholder"><text>♫</text><text class="artwork-caption">听见 · 每一刻的共鸣</text></view>
+    <view class="song-viewport">
+      <view id="song-motion" class="song-motion" data-revision="{{transitionRevision}}" bindtransitionend="transitionFinished" style="transform:translate3d(0,{{transitionY}}px,0);opacity:{{transitionOpacity}};transition-duration:{{transitionDuration}}ms">
+        <view class="listening-stage">
+          <view wx:if="{{!lyricsVisible}}" class="artwork-stage" bindtouchstart="swipeStart" catchtouchmove="swipeMove" bindtouchend="swipeEnd" bindtouchcancel="swipeCancel">
+            <view class="artwork-frame">
+              <image wx:if="{{coverUrl && !coverBroken}}" class="song-artwork" src="{{coverUrl}}" mode="aspectFill" binderror="coverFailed"/>
+              <view wx:else class="artwork-placeholder"><text>♫</text><text class="artwork-caption">听见 · 每一刻的共鸣</text></view>
+            </view>
+            <view class="lyric-preview"><text class="preview-current">{{previewLine}}</text><text wx:if="{{previewNext}}" class="preview-next">{{previewNext}}</text></view>
+          </view>
+          <view wx:else class="lyrics-region">
+            <scroll-view wx:if="{{lyricStatus === 'synced'}}" class="lyric-scroll" scroll-y="{{true}}" scroll-top="{{lyricScrollTop}}" scroll-with-animation="{{following}}" show-scrollbar="{{false}}" bindtouchstart="manualStart" bindtouchend="manualEnd" bindtouchcancel="manualEnd" bindscroll="manualScroll">
+              <view class="lyric-spacer"></view>
+              <view wx:for="{{lyricLines}}" wx:key="time_ms" id="lyric-line-{{index}}" class="lyric-line {{activeIndex === index ? 'active-line' : ''}}"><text>{{item.text}}</text></view>
+              <view class="lyric-spacer"></view>
+            </scroll-view>
+            <scroll-view wx:elif="{{lyricStatus === 'plain'}}" scroll-y="{{true}}" class="lyric-scroll" show-scrollbar="{{false}}"><text class="plain-label">音源未提供歌词时间轴</text><text class="plain-lyrics">{{plainText}}</text></scroll-view>
+            <view wx:else class="lyric-empty">
+              <text class="lyric-symbol">{{lyricStatus === 'loading' ? '···' : '♫'}}</text>
+              <text class="lyric-empty-title">{{lyricMessage || '暂无歌词'}}</text>
+              <text wx:if="{{lyricStatus === 'unavailable'}}" class="lyric-note">暂未提供歌词，让旋律陪你一会儿</text>
+              <text wx:if="{{lyricStatus === 'instrumental'}}" class="lyric-note">此刻，只听旋律</text>
+              <button wx:if="{{lyricStatus === 'error'}}" class="lyric-retry" disabled="{{retryAfter > 0}}" bindtap="retryLyrics">{{retryAfter > 0 ? '稍后可重试' : '重试获取歌词'}}</button>
+            </view>
+            <button wx:if="{{lyricStatus === 'synced' && !following}}" class="follow-lyrics" bindtap="followLyrics">回到当前歌词</button>
+          </view>
         </view>
-        <view class="lyric-preview"><text class="preview-current">{{previewLine}}</text><text wx:if="{{previewNext}}" class="preview-next">{{previewNext}}</text></view>
-      </view>
-      <view wx:else class="lyrics-region">
-        <scroll-view wx:if="{{lyricStatus === 'synced'}}" class="lyric-scroll" scroll-y="{{true}}" scroll-top="{{lyricScrollTop}}" scroll-with-animation="{{following}}" show-scrollbar="{{false}}" bindtouchstart="manualStart" bindtouchend="manualEnd" bindtouchcancel="manualEnd" bindscroll="manualScroll">
-          <view class="lyric-spacer"></view>
-          <view wx:for="{{lyricLines}}" wx:key="time_ms" id="lyric-line-{{index}}" class="lyric-line {{activeIndex === index ? 'active-line' : ''}}"><text>{{item.text}}</text></view>
-          <view class="lyric-spacer"></view>
-        </scroll-view>
-        <scroll-view wx:elif="{{lyricStatus === 'plain'}}" scroll-y="{{true}}" class="lyric-scroll" show-scrollbar="{{false}}"><text class="plain-label">音源未提供歌词时间轴</text><text class="plain-lyrics">{{plainText}}</text></scroll-view>
-        <view wx:else class="lyric-empty">
-          <text class="lyric-symbol">{{lyricStatus === 'loading' ? '···' : '♫'}}</text>
-          <text class="lyric-empty-title">{{lyricMessage || '暂无歌词'}}</text>
-          <text wx:if="{{lyricStatus === 'unavailable'}}" class="lyric-note">暂未提供歌词，让旋律陪你一会儿</text>
-          <text wx:if="{{lyricStatus === 'instrumental'}}" class="lyric-note">此刻，只听旋律</text>
-          <button wx:if="{{lyricStatus === 'error'}}" class="lyric-retry" disabled="{{retryAfter > 0}}" bindtap="retryLyrics">{{retryAfter > 0 ? '稍后可重试' : '重试获取歌词'}}</button>
-        </view>
-        <button wx:if="{{lyricStatus === 'synced' && !following}}" class="follow-lyrics" bindtap="followLyrics">回到当前歌词</button>
-      </view>
-    </view>
 
-    <view class="track-info" bindtouchstart="swipeStart" catchtouchmove="swipeMove" bindtouchend="swipeEnd" bindtouchcancel="cancelSwipe">
-      <text class="full-title">{{title}}</text>
-      <view class="track-meta"><text class="full-artist">{{artist}}</text><text wx:if="{{sourceName}}" class="full-source">{{sourceName}}</text></view>
-      <text class="swipe-hint">上划下一首 · 下划上一首</text>
+        <view class="track-info" bindtouchstart="swipeStart" catchtouchmove="swipeMove" bindtouchend="swipeEnd" bindtouchcancel="swipeCancel">
+          <text class="full-title">{{title}}</text>
+          <view class="track-meta"><text class="full-artist">{{artist}}</text><text wx:if="{{sourceName}}" class="full-source">{{sourceName}}</text></view>
+          <text class="swipe-hint">上划下一首 · 下划上一首</text>
+        </view>
+
+      </view>
     </view>
 
     <view class="full-controls">
