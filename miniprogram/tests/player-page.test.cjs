@@ -194,3 +194,45 @@ test("only artwork and song metadata capture switching gestures, not lyrics, sli
   assert.ok(source.includes('bindtouchcancel="cancelSwipe"'));
   assert.ok(!source.includes('bindtap="shareTimeline"'));
 });
+
+test("current-song-list entry and sheet use 此刻歌单, with song counts only inside the sheet", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "../src/pages/player/index.wxml"),
+    "utf8",
+  );
+  const entry = source.match(
+    /<button\b[^>]*bindtap="openQueue"[^>]*>[\s\S]*?<\/button>/,
+  )?.[0];
+  assert.ok(entry);
+  assert.ok(entry.includes("<text>此刻歌单</text>"));
+  assert.ok(entry.includes('aria-label="查看此刻歌单"'));
+  assert.ok(entry.includes('src="/assets/icons/queue.svg"'));
+  assert.ok(!entry.includes("queueCount") && !entry.includes("queue-count"));
+  assert.ok(source.includes('aria-label="此刻歌单"'));
+  assert.ok(source.includes('class="queue-title">此刻歌单</text>'));
+  assert.ok(source.includes('aria-label="关闭此刻歌单"'));
+  assert.ok(source.includes('class="queue-total">{{queueCount}} 首</text>'));
+  assert.equal((source.match(/\{\{queueCount\}\}/g) || []).length, 1);
+  const css = fs.readFileSync(
+    path.join(__dirname, "../src/pages/player/index.wxss"),
+    "utf8",
+  );
+  assert.match(css, /\.utility-button \{[^}]*white-space: nowrap;/);
+  assert.ok(!css.includes(".queue-count"));
+});
+
+test("此刻歌单 keeps live counts for empty, single-song and 100-song lists", () => {
+  const { page, songs } = setup();
+  page.openQueue();
+  for (const count of [0, 1, 100]) {
+    songs.splice(
+      0,
+      songs.length,
+      ...Array.from({ length: count }, (_, i) => song(i + 1)),
+    );
+    page.renderPlayer(app.player.state);
+    assert.equal(page.data.queueCount, count);
+    assert.equal(page.data.queueItems.length, count);
+  }
+  assert.deepEqual(selected, []);
+});

@@ -76,16 +76,16 @@
           <view wx:elif="{{playing || continuing}}" class="control-pause" aria-hidden="true"><view/><view/></view>
           <view wx:else class="control-play" aria-hidden="true"/>
         </button>
-        <button class="utility-button" hover-class="control-pressed" bindtap="openQueue" aria-label="查看当前播放队列"><image class="queue-control-icon" src="/assets/icons/queue.svg" mode="aspectFit" aria-hidden="true"/><text>队列<text wx:if="{{queueCount}}" class="queue-count"> {{queueCount}}</text></text></button>
+        <button class="utility-button" hover-class="control-pressed" bindtap="openQueue" aria-label="查看此刻歌单"><image class="queue-control-icon" src="/assets/icons/queue.svg" mode="aspectFit" aria-hidden="true"/><text>此刻歌单</text></button>
       </view>
       <text wx:if="{{message && (loading || failed || queueEnded)}}" class="full-message">{{message}}</text>
       <text wx:else class="full-footnote">{{lyricsVisible && lyricSource ? '歌词来源 · ' + lyricSource : '给生活，留一点音乐的时间'}}</text>
     </view>
 
     <view wx:if="{{queueOpen}}" class="queue-overlay" catchtap="closeQueue">
-      <view class="queue-sheet" catchtap="swallowTouch" aria-role="dialog" aria-label="当前播放队列">
+      <view class="queue-sheet" catchtap="swallowTouch" aria-role="dialog" aria-label="此刻歌单">
         <view class="sheet-handle"></view>
-        <view class="queue-heading"><view><text class="queue-title">当前播放</text><text class="queue-total">{{queueCount}} 首</text></view><button class="queue-close" bindtap="closeQueue" aria-label="关闭播放队列"><view class="close-icon" aria-hidden="true"/></button></view>
+        <view class="queue-heading"><view><text class="queue-title">此刻歌单</text><text class="queue-total">{{queueCount}} 首</text></view><button class="queue-close" bindtap="closeQueue" aria-label="关闭此刻歌单"><view class="close-icon" aria-hidden="true"/></button></view>
         <text class="queue-note">手动切歌使用当前队列，播完自动接续首页推荐</text>
         <scroll-view class="queue-scroll" scroll-y="{{true}}" scroll-into-view="{{queueActiveId}}" show-scrollbar="{{false}}">
           <button wx:for="{{queueItems}}" wx:key="key" id="queue-row-{{index}}" class="queue-row {{item.active ? 'queue-row-active' : ''}}" data-key="{{item.key}}" bindtap="selectQueueSong" aria-label="{{item.active ? '当前歌曲：' : '播放：'}}{{item.title}}">

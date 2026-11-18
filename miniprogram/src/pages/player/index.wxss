@@ -419,6 +419,7 @@ page {
   background: transparent;
   font-size: 20rpx;
   line-height: 1.4;
+  white-space: nowrap;
 }
 .utility-button.utility-selected {
   color: #f4d5a2;
@@ -440,9 +441,6 @@ page {
   width: 40rpx;
   height: 40rpx;
   opacity: 0.8;
-}
-.queue-count {
-  font-size: 18rpx;
 }
 .full-buttons .control-button {
   display: flex;
