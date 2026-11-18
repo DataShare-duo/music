@@ -54,11 +54,11 @@
 
     <view class="full-controls">
       <view class="personal-actions">
-        <button class="personal-action {{favorite ? 'favorite-selected' : ''}}" hover-class="personal-action-pressed" data-kind="favorite" bindtap="toggleMark" disabled="{{!hasSong || markLoading}}" aria-label="{{favorite ? '取消收藏' : '收藏歌曲'}}">
+        <button class="personal-action {{favorite ? 'favorite-selected' : ''}}" hover-class="personal-action-pressed" data-kind="favorite" bindtap="toggleMark" disabled="{{!hasSong}}" aria-label="{{favorite ? '取消收藏' : '收藏歌曲'}}">
           <image class="action-icon" src="{{favorite ? '/assets/icons/star-filled.svg' : '/assets/icons/star.svg'}}" mode="aspectFit" aria-hidden="true"/>
           <text class="action-label">{{favorite ? '已收藏' : '收藏'}}</text>
         </button>
-        <button class="personal-action {{liked ? 'like-selected' : ''}}" hover-class="personal-action-pressed" data-kind="like" bindtap="toggleMark" disabled="{{!hasSong || markLoading}}" aria-label="{{liked ? '取消喜欢' : '喜欢歌曲'}}">
+        <button class="personal-action {{liked ? 'like-selected' : ''}}" hover-class="personal-action-pressed" data-kind="like" bindtap="toggleMark" disabled="{{!hasSong}}" aria-label="{{liked ? '取消喜欢' : '喜欢歌曲'}}">
           <image class="action-icon" src="{{liked ? '/assets/icons/heart-filled.svg' : '/assets/icons/heart.svg'}}" mode="aspectFit" aria-hidden="true"/>
           <text class="action-label">{{liked ? '已喜欢' : '喜欢'}}</text>
         </button>

@@ -35,7 +35,6 @@ Page({
     sharedArtist: "",
     favorite: false,
     liked: false,
-    markLoading: false,
     personalError: "",
     artist: "",
     sourceName: "",
@@ -417,20 +416,18 @@ Page({
   },
   async toggleMark(event: WechatMiniprogram.TouchEvent) {
     const kind = event.currentTarget.dataset.kind as "favorite" | "like";
-    if (!["favorite", "like"].includes(kind) || this.data.markLoading) return;
+    if (!["favorite", "like"].includes(kind)) return;
     const app = getApp<MusicApp>(),
       song = app.player?.state.current,
       personal = app.personal;
     if (!song || !personal) return;
-    this.setData({ markLoading: true });
     try {
+      // PersonalStore deduplicates per song and mark without disabling both buttons.
       await personal.mark(kind, song, !personal.has(kind, song));
     } catch (e) {
       this.setData({
         personalError: e instanceof Error ? e.message : "保存失败",
       });
-    } finally {
-      this.setData({ markLoading: false });
     }
   },
   onShareAppMessage() {

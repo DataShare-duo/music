@@ -348,9 +348,11 @@ page {
   border: 0;
 }
 .personal-action[disabled] {
+  background: transparent;
   opacity: 0.38;
 }
 .personal-action-pressed {
+  background: transparent;
   opacity: 0.7;
   transform: scale(0.94);
 }

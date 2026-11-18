@@ -190,7 +190,8 @@ test("personal actions use flat vector icons without nested cards, circles or fo
   assert.ok(actions.includes('open-type="share"'));
   assert.ok(actions.includes('aria-label="分享歌曲"'));
   assert.ok(actions.includes("已收藏") && actions.includes("已喜欢"));
-  assert.ok(actions.includes('disabled="{{!hasSong || markLoading}}"'));
+  assert.equal((actions.match(/disabled="\{\{!hasSong\}\}"/g) || []).length, 3);
+  assert.ok(!actions.includes("markLoading"));
   assert.ok(!/[☆★♡♥↗]/u.test(actions));
   for (const name of [
     "star",
