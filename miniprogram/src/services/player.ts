@@ -116,6 +116,9 @@ export class NativePlayer {
       this.observers.delete(observer);
     };
   }
+  queueSnapshot(): Song[] {
+    return this.queue.map((song) => ({ ...song }));
+  }
   snapshot(): PlayerState {
     return { ...this.state, events: [...this.state.events] };
   }

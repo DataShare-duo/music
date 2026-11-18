@@ -1,3 +1,4 @@
+import { enableSharing } from "../../services/sharing";
 import { MusicApp } from "../../app";
 import { Song } from "../../types";
 import { SavedSong } from "../../services/personal";
@@ -36,7 +37,7 @@ Page({
       limited = wx.getLaunchOptionsSync().scene === 1154;
     } catch {}
     this.setData({ limited });
-    wx.showShareMenu({ menus: ["shareAppMessage", "shareTimeline"] });
+    enableSharing();
   },
   onShow() {
     this.visible = true;

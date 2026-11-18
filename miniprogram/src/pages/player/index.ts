@@ -1,6 +1,6 @@
 import type { SavedSong } from "../../services/personal";
 import {
-  shareToTimeline,
+  enableSharing,
   timelineCard,
   isTimelinePreview,
 } from "../../services/sharing";
@@ -9,13 +9,27 @@ import { routes } from "../../routes";
 import { MusicApp } from "../../app";
 import { api } from "../../services/api";
 import { LyricController, LyricState } from "../../services/lyrics";
-import { LyricLine, time } from "../../types";
+import { LyricLine, Song, sourceNames, time } from "../../types";
+import { TrackSwipe } from "../../shared/player-gestures";
 import { PlayerState } from "../../services/player";
 import { openHome } from "../../routes";
 
 Page({
   data: {
     title: "听见",
+    lyricsVisible: false,
+    previewLine: "让好音乐，陪你一会儿",
+    previewNext: "",
+    queueOpen: false,
+    queueCount: 0,
+    queueItems: [] as {
+      key: string;
+      title: string;
+      artist: string;
+      sourceName: string;
+      active: boolean;
+    }[],
+    queueActiveId: "",
     limitedShare: false,
     sharedTitle: "分享的歌曲",
     sharedArtist: "",
@@ -50,6 +64,9 @@ Page({
     retryAfter: 0,
     lyricScrollTop: 0,
   },
+  gesture: null as TrackSwipe | null,
+  gestureIdentity: "",
+  queueRevision: "",
   sharedSong: null as SavedSong | null,
   lyrics: null as LyricController | null,
   unsubscribe: null as (() => void) | null,
@@ -73,7 +90,8 @@ Page({
       wx.redirectTo({ url: "/" + routes.song + "?" + shareQuery(shared) });
       return;
     }
-    wx.showShareMenu?.({ menus: ["shareAppMessage", "shareTimeline"] });
+    enableSharing();
+    this.gesture = new TrackSwipe();
     try {
       const info = wx.getWindowInfo
         ? wx.getWindowInfo()
@@ -120,6 +138,8 @@ Page({
   },
   onHide() {
     this.visible = false;
+    this.cancelSwipe();
+    this.closeQueue();
     this.personalUnsubscribe?.();
     this.personalUnsubscribe = null;
     ++this.scrollGeneration;
@@ -129,12 +149,16 @@ Page({
   },
   onUnload() {
     this.visible = false;
+    this.cancelSwipe();
+    this.personalUnsubscribe?.();
+    this.personalUnsubscribe = null;
     ++this.scrollGeneration;
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.lyrics?.pause();
   },
   renderPlayer(state: PlayerState) {
+    if (state.loading || !state.current) this.cancelSwipe();
     const personal = getApp<MusicApp>().personal;
     this.setData({
       favorite: state.current
@@ -163,6 +187,7 @@ Page({
         ? { coverUrl, coverBroken: false }
         : {}),
     });
+    this.renderQueue(state.current);
   },
   renderLyrics(state: LyricState) {
     const newLines = this.lastLines !== state.lines;
@@ -170,8 +195,23 @@ Page({
     const move =
       state.following && state.scrollRevision !== this.scrollRevision;
     this.scrollRevision = state.scrollRevision;
+    const index = Math.max(0, state.activeIndex);
+    const previewLine =
+      state.status === "synced"
+        ? state.lines[index]?.text || "让旋律慢慢流淌"
+        : state.status === "plain"
+          ? state.plainText.split(/\r?\n/).find((line) => line.trim()) ||
+            "静静听，这一刻的旋律"
+          : state.status === "loading"
+            ? "正在寻找这首歌的歌词…"
+            : state.status === "instrumental"
+              ? "此刻，只听旋律"
+              : "静静听，让旋律陪你一会儿";
     this.setData(
       {
+        previewLine,
+        previewNext:
+          state.status === "synced" ? state.lines[index + 1]?.text || "" : "",
         lyricStatus: state.status,
         plainText: state.plainText,
         lyricMessage: state.message,
@@ -187,11 +227,12 @@ Page({
     );
   },
   centerLine(index: number) {
-    if (index < 0 || !this.visible) return;
+    if (index < 0 || !this.visible || !this.data.lyricsVisible) return;
     const token = ++this.scrollGeneration;
     wx.nextTick(() => {
       if (
         !this.visible ||
+        !this.data.lyricsVisible ||
         token !== this.scrollGeneration ||
         !this.data.following ||
         this.data.activeIndex !== index
@@ -204,6 +245,7 @@ Page({
       query.exec((results) => {
         if (
           !this.visible ||
+          !this.data.lyricsVisible ||
           token !== this.scrollGeneration ||
           !this.data.following ||
           this.data.activeIndex !== index
@@ -240,11 +282,118 @@ Page({
   toggle() {
     void getApp<MusicApp>().player?.toggle();
   },
-  previous() {
-    void getApp<MusicApp>().player?.next(-1);
+  swipeStart(event: WechatMiniprogram.TouchEvent) {
+    this.cancelSwipe();
+    const state = getApp<MusicApp>().player?.state;
+    if (
+      !this.visible ||
+      !state?.current ||
+      state.loading ||
+      this.data.queueOpen
+    )
+      return;
+    this.gestureIdentity = state.current.id + ":" + state.sessionId;
+    this.gesture?.start(event.touches, event.timeStamp);
   },
-  next() {
-    void getApp<MusicApp>().player?.next(1);
+  swipeMove(event: WechatMiniprogram.TouchEvent) {
+    this.gesture?.move(event.touches);
+  },
+  swipeEnd(event: WechatMiniprogram.TouchEvent) {
+    const identity = this.gestureIdentity;
+    this.gestureIdentity = "";
+    const direction = this.gesture?.end(
+      event.changedTouches,
+      event.touches.length,
+      event.timeStamp,
+    );
+    const player = getApp<MusicApp>().player;
+    const state = player?.state;
+    if (
+      !direction ||
+      !this.visible ||
+      !state?.current ||
+      state.loading ||
+      this.data.queueOpen ||
+      identity !== state.current.id + ":" + state.sessionId
+    )
+      return;
+    void player?.next(direction);
+  },
+  cancelSwipe() {
+    this.gesture?.cancel();
+    this.gestureIdentity = "";
+  },
+  toggleLyrics() {
+    this.cancelSwipe();
+    ++this.scrollGeneration;
+    this.setData({ lyricsVisible: !this.data.lyricsVisible }, () => {
+      if (this.data.lyricsVisible) this.lyrics?.follow();
+    });
+  },
+  renderQueue(current: Song | null) {
+    const songs = getApp<MusicApp>().player?.queueSnapshot?.() || [];
+    const queueCount = songs.length;
+    if (queueCount !== this.data.queueCount) this.setData({ queueCount });
+    if (!this.data.queueOpen) return;
+    const items = songs.map((song) => {
+      const active =
+        !!current &&
+        song.source === current.source &&
+        song.source_track_id === current.source_track_id;
+      return {
+        key: song.source + ":" + song.source_track_id,
+        title: song.title,
+        artist: song.artist,
+        sourceName:
+          active && this.data.sourceName
+            ? this.data.sourceName
+            : song.play_source_name ||
+              (song.play_source ? sourceNames[song.play_source] : "") ||
+              sourceNames[song.source] ||
+              "",
+        active,
+      };
+    });
+    const revision = JSON.stringify(items);
+    if (revision === this.queueRevision) return;
+    this.queueRevision = revision;
+    const activeIndex = items.findIndex((item) => item.active);
+    this.setData({
+      queueItems: items,
+      queueActiveId: activeIndex >= 0 ? "queue-row-" + activeIndex : "",
+    });
+  },
+  openQueue() {
+    this.cancelSwipe();
+    this.queueRevision = "";
+    this.setData({ queueOpen: true });
+    this.renderQueue(getApp<MusicApp>().player?.state.current || null);
+  },
+  closeQueue() {
+    if (this.data.queueOpen) this.setData({ queueOpen: false });
+  },
+  swallowTouch() {},
+  selectQueueSong(event: WechatMiniprogram.TouchEvent) {
+    const player = getApp<MusicApp>().player;
+    const song = player
+      ?.queueSnapshot()
+      .find(
+        (item) =>
+          item.source + ":" + item.source_track_id ===
+          event.currentTarget.dataset.key,
+      );
+    this.closeQueue();
+    if (!song || !player) {
+      wx.showToast({ title: "该歌曲已从当前队列移除", icon: "none" });
+      return;
+    }
+    const current = player.state.current;
+    if (
+      current?.source === song.source &&
+      current.source_track_id === song.source_track_id
+    )
+      return;
+    void player.play(song);
   },
   seek(event: WechatMiniprogram.SliderChange) {
     getApp<MusicApp>().player?.seek(event.detail.value);
@@ -253,6 +402,7 @@ Page({
     this.lyrics?.retry();
   },
   manualStart() {
+    this.cancelSwipe();
     ++this.scrollGeneration;
     this.lyrics?.manualStart();
   },
@@ -287,9 +437,6 @@ Page({
     return shareCard(
       this.sharedSong || getApp<MusicApp>().player?.state.current || null,
     );
-  },
-  shareTimeline() {
-    shareToTimeline();
   },
   onShareTimeline() {
     return timelineCard(

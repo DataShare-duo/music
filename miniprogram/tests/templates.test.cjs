@@ -114,25 +114,23 @@ test("fullscreen controls use geometric icons with state, accessibility and touc
       "aria-label=\"{{continuing ? '暂停自动续播' : (loading ? '正在加载' : (playing ? '暂停' : '播放'))}}\"",
     ),
   );
-  assert.ok(markup.includes('class="control-skip control-skip-next"'));
+  assert.ok(
+    !markup.includes('bindtap="previous"') &&
+      !markup.includes('bindtap="next"'),
+  );
   const controls = markup.slice(markup.indexOf('<view class="full-buttons">'));
-  assert.equal((controls.match(/class="control-button/g) || []).length, 3);
-  for (const action of ["previous", "toggle", "next"]) {
+  assert.equal((controls.match(/class="control-button/g) || []).length, 1);
+  for (const action of ["toggle", "toggleLyrics", "openQueue"])
     assert.ok(controls.includes('bindtap="' + action + '"'));
-  }
   assert.ok(
     controls.includes(
       'disabled="{{!hasSong || (loading && !failed && !continuing)}}"',
     ),
   );
-  assert.equal(
-    controls.split('disabled="{{!hasSong || loading}}"').length - 1,
-    2,
-  );
+  assert.ok(markup.includes("上划下一首 · 下划上一首"));
   assert.ok(!/[⌄◀▶Ⅱ]/u.test(markup));
   assert.match(css, /width: 80rpx;[\s\S]*height: 80rpx/);
-  assert.match(css, /width: 96rpx;[\s\S]*height: 96rpx/);
-  assert.match(css, /width: 124rpx;[\s\S]*height: 124rpx/);
+  assert.match(css, /width: 112rpx;[\s\S]*height: 112rpx/);
   assert.ok(css.includes("background: currentColor"));
   assert.ok(css.includes("safe-area-inset-bottom"));
 });
@@ -182,11 +180,11 @@ test("personal actions use flat vector icons without nested cards, circles or fo
     markup.indexOf('<view class="personal-actions">'),
     markup.indexOf('<text wx:if="{{personalError}}"'),
   );
-  assert.equal((actions.match(/class="action-icon"/g) || []).length, 4);
-  assert.equal((actions.match(/class="action-label"/g) || []).length, 4);
+  assert.equal((actions.match(/class="action-icon"/g) || []).length, 3);
+  assert.equal((actions.match(/class="action-label"/g) || []).length, 3);
   assert.equal(
     (actions.match(/hover-class="personal-action-pressed"/g) || []).length,
-    4,
+    3,
   );
   assert.equal((actions.match(/bindtap="toggleMark"/g) || []).length, 2);
   assert.ok(actions.includes('open-type="share"'));
@@ -200,7 +198,6 @@ test("personal actions use flat vector icons without nested cards, circles or fo
     "heart",
     "heart-filled",
     "share",
-    "timeline",
   ]) {
     assert.ok(actions.includes("/assets/icons/" + name + ".svg"));
     const icon = await fs.readFile(
@@ -226,8 +223,8 @@ test("personal actions use flat vector icons without nested cards, circles or fo
     assert.match(rule(selector), /border: 0/);
     assert.ok(!rule(selector).includes("box-shadow"));
   }
-  assert.match(rule(".personal-action"), /min-height: 104rpx/);
-  assert.match(rule(".action-icon"), /width: 40rpx/);
+  assert.match(rule(".personal-action"), /min-height: 96rpx/);
+  assert.match(rule(".action-icon"), /width: 54rpx/);
   assert.ok(!rule(".action-icon").includes("border"));
   assert.ok(
     !css.includes(".action-star::before") &&

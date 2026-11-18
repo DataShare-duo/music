@@ -8,11 +8,7 @@ global.wx = {
   showShareMenu: (options) => menus.push(options),
   showModal: (options) => modals.push(options),
 };
-const {
-  enableSharing,
-  timelineCard,
-  shareToTimeline,
-} = require("../dist/services/sharing.js");
+const { enableSharing, timelineCard } = require("../dist/services/sharing.js");
 const song = {
   source: "netease",
   source_track_id: "123",
@@ -22,17 +18,27 @@ const song = {
   album: "",
   duration: 90,
 };
-test("timeline guide enables the real WeChat menu and never claims an unsupported direct-share API exists", () => {
-  shareToTimeline();
-  assert.deepEqual(menus.at(-1).menus, ["shareAppMessage", "shareTimeline"]);
-  assert.match(modals.at(-1).content, /右上角/);
-  assert.match(modals.at(-1).content, /分享到朋友圈/);
+test("sharing exposes only the direct friend menu, without a misleading timeline button or modal", () => {
+  enableSharing();
+  assert.deepEqual(menus.at(-1).menus, ["shareAppMessage"]);
+  assert.equal(modals.length, 0);
+  for (const file of [
+    "services/sharing.ts",
+    "pages/player/index.ts",
+    "pages/song/index.ts",
+  ]) {
+    const content = fs.readFileSync(
+      path.resolve(__dirname, "../src", file),
+      "utf8",
+    );
+    assert.ok(!content.includes('["shareAppMessage", "shareTimeline"]'));
+  }
   const source = fs.readFileSync(
     path.resolve(__dirname, "../src/services/sharing.ts"),
     "utf8",
   );
   assert.ok(
-    !source.includes("wx.shareToTimeline") && !source.includes("uploadFile"),
+    !source.includes("shareToTimeline") && !source.includes("uploadFile"),
   );
 });
 test("timeline card contains only stable song identity and supports the existing safe landing route", () => {
@@ -46,8 +52,8 @@ test("timeline card contains only stable song identity and supports the existing
     path.resolve(__dirname, "../src/pages/player/index.wxml"),
     "utf8",
   );
-  assert.ok(player.includes('bindtap="shareTimeline"'));
-  assert.ok(player.includes("朋友圈"));
+  assert.ok(!player.includes('bindtap="shareTimeline"'));
+  assert.ok(!player.includes("朋友圈"));
   const page = fs.readFileSync(
     path.resolve(__dirname, "../src/pages/player/index.ts"),
     "utf8",

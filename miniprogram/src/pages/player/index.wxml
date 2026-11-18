@@ -1,39 +1,100 @@
-<block wx:if="{{limitedShare}}"><view class="timeline-preview"><text class="timeline-eyebrow">A SONG FOR YOU</text><view class="timeline-art">♫</view><text class="timeline-title">{{sharedTitle}}</text><text class="timeline-artist">{{sharedArtist}}</text><text class="timeline-note">与你分享这一段旋律</text><text class="timeline-caption">歌曲播放等交互在完整小程序中提供</text></view></block>
-<block wx:else>
-<view class="full-player"><view class="backdrop"><image wx:if="{{coverUrl && !coverBroken}}" class="background-cover" src="{{coverUrl}}" mode="aspectFill" binderror="coverFailed"/><view class="background-fallback" wx:else></view><view class="background-shade"></view></view>
-<view class="full-header" style="padding-top:{{statusTop}}px;padding-right:{{headerRight}}px"><button class="collapse" hover-class="collapse-pressed" aria-label="返回音乐页面" bindtap="back"><view class="collapse-chevron" aria-hidden="true"/></button><view class="header-copy"><text>听见 · 此刻正在听</text><text class="header-en">LISTEN & FEEL</text></view></view>
-<view class="track-info"><text class="full-title">{{title}}</text><text class="full-artist">{{artist}}</text><text wx:if="{{sourceName}}" class="full-source">{{sourceName}}</text></view>
-<view class="lyrics-region"><scroll-view wx:if="{{lyricStatus === 'synced'}}" class="lyric-scroll" scroll-y="{{true}}" scroll-top="{{lyricScrollTop}}" scroll-with-animation="{{following}}" show-scrollbar="{{false}}" bindtouchstart="manualStart" bindtouchend="manualEnd" bindtouchcancel="manualEnd" bindscroll="manualScroll"><view class="lyric-spacer"></view><view wx:for="{{lyricLines}}" wx:key="time_ms" id="lyric-line-{{index}}" class="lyric-line {{activeIndex === index ? 'active-line' : ''}}"><text>{{item.text}}</text></view><view class="lyric-spacer"></view></scroll-view>
-<scroll-view wx:elif="{{lyricStatus === 'plain'}}" scroll-y="{{true}}" class="lyric-scroll" show-scrollbar="{{false}}"><text class="plain-label">音源未提供歌词时间轴</text><text class="plain-lyrics">{{plainText}}</text></scroll-view>
-<view wx:else class="lyric-empty"><text class="lyric-symbol">{{lyricStatus === 'loading' ? '···' : '♫'}}</text><text class="lyric-empty-title">{{lyricMessage || '暂无歌词'}}</text><text wx:if="{{lyricStatus === 'unavailable'}}" class="lyric-note">暂未提供歌词，让旋律陪你一会儿</text><text wx:if="{{lyricStatus === 'instrumental'}}" class="lyric-note">此刻，只听旋律</text><button wx:if="{{lyricStatus === 'error'}}" class="lyric-retry" disabled="{{retryAfter > 0}}" bindtap="retryLyrics">{{retryAfter > 0 ? '稍后可重试' : '重试获取歌词'}}</button></view>
-<button wx:if="{{lyricStatus === 'synced' && !following}}" class="follow-lyrics" bindtap="followLyrics">↟ 回到当前歌词</button></view>
-<view class="full-controls">
-  <view class="personal-actions">
-    <button class="personal-action {{favorite ? 'favorite-selected' : ''}}" hover-class="personal-action-pressed" data-kind="favorite" bindtap="toggleMark" disabled="{{!hasSong || markLoading}}" aria-label="{{favorite ? '取消收藏' : '收藏歌曲'}}">
-      <image class="action-icon" src="{{favorite ? '/assets/icons/star-filled.svg' : '/assets/icons/star.svg'}}" mode="aspectFit" aria-hidden="true"/>
-      <text class="action-label">{{favorite ? '已收藏' : '收藏'}}</text>
-    </button>
-    <button class="personal-action {{liked ? 'like-selected' : ''}}" hover-class="personal-action-pressed" data-kind="like" bindtap="toggleMark" disabled="{{!hasSong || markLoading}}" aria-label="{{liked ? '取消喜欢' : '喜欢歌曲'}}">
-      <image class="action-icon" src="{{liked ? '/assets/icons/heart-filled.svg' : '/assets/icons/heart.svg'}}" mode="aspectFit" aria-hidden="true"/>
-      <text class="action-label">{{liked ? '已喜欢' : '喜欢'}}</text>
-    </button>
-    <button class="personal-action" hover-class="personal-action-pressed" open-type="share" disabled="{{!hasSong}}" aria-label="分享歌曲">
-      <image class="action-icon" src="/assets/icons/share.svg" mode="aspectFit" aria-hidden="true"/>
-      <text class="action-label">分享</text>
-    </button>
-    <button class="personal-action" hover-class="personal-action-pressed" bindtap="shareTimeline" disabled="{{!hasSong}}" aria-label="分享到朋友圈">
-      <image class="action-icon" src="/assets/icons/timeline.svg" mode="aspectFit" aria-hidden="true"/>
-      <text class="action-label">朋友圈</text>
-    </button>
+<block wx:if="{{limitedShare}}">
+  <view class="timeline-preview">
+    <text class="timeline-eyebrow">A SONG FOR YOU</text>
+    <view class="timeline-art">♫</view>
+    <text class="timeline-title">{{sharedTitle}}</text>
+    <text class="timeline-artist">{{sharedArtist}}</text>
+    <text class="timeline-note">与你分享这一段旋律</text>
+    <text class="timeline-caption">歌曲播放等交互在完整小程序中提供</text>
   </view>
-<text wx:if="{{personalError}}" class="personal-error">{{personalError}}</text><text wx:if="{{lyricSource}}" class="lyric-credit">歌词来源 · {{lyricSource}}</text><view class="full-progress"><text>{{positionText}}</text><slider min="0" max="{{duration || 1}}" value="{{position}}" step="0.1" disabled="{{!duration || loading}}" bindchange="seek" activeColor="#ffffff" backgroundColor="#ffffff30" block-size="12"/><text>{{durationText}}</text></view><view class="full-buttons">
-  <button class="control-button control-secondary" hover-class="control-pressed" aria-label="上一首" disabled="{{!hasSong || loading}}" bindtap="previous"><view class="control-skip" aria-hidden="true"><view class="skip-bar"/><view class="skip-triangle"/></view></button>
-  <button class="control-button full-play" hover-class="control-pressed" aria-label="{{continuing ? '暂停自动续播' : (loading ? '正在加载' : (playing ? '暂停' : '播放'))}}" disabled="{{!hasSong || (loading && !failed && !continuing)}}" bindtap="toggle">
-    <view wx:if="{{loading && !continuing}}" class="control-spinner" aria-hidden="true"/>
-    <view wx:elif="{{playing || continuing}}" class="control-pause" aria-hidden="true"><view/><view/></view>
-    <view wx:else class="control-play" aria-hidden="true"/>
-  </button>
-  <button class="control-button control-secondary" hover-class="control-pressed" aria-label="下一首" disabled="{{!hasSong || loading}}" bindtap="next"><view class="control-skip control-skip-next" aria-hidden="true"><view class="skip-bar"/><view class="skip-triangle"/></view></button>
-</view><text wx:if="{{message && (loading || failed || queueEnded)}}" class="full-message">{{message}}</text><text wx:else class="full-footnote">给生活，留一点音乐的时间</text></view></view>
+</block>
+<block wx:else>
+  <view class="full-player">
+    <view class="backdrop">
+      <image wx:if="{{coverUrl && !coverBroken}}" class="background-cover" src="{{coverUrl}}" mode="aspectFill" binderror="coverFailed"/>
+      <view class="background-fallback" wx:else></view>
+      <view class="background-shade"></view>
+    </view>
+    <view class="full-header" style="padding-top:{{statusTop}}px;padding-right:{{headerRight}}px">
+      <button class="collapse" hover-class="collapse-pressed" aria-label="返回音乐页面" bindtap="back"><view class="collapse-chevron" aria-hidden="true"/></button>
+      <view class="header-copy"><text>听见 · 此刻正在听</text><text class="header-en">LISTEN & FEEL</text></view>
+    </view>
 
+    <view class="listening-stage">
+      <view wx:if="{{!lyricsVisible}}" class="artwork-stage" bindtouchstart="swipeStart" catchtouchmove="swipeMove" bindtouchend="swipeEnd" bindtouchcancel="cancelSwipe">
+        <view class="artwork-frame">
+          <image wx:if="{{coverUrl && !coverBroken}}" class="song-artwork" src="{{coverUrl}}" mode="aspectFill" binderror="coverFailed"/>
+          <view wx:else class="artwork-placeholder"><text>♫</text><text class="artwork-caption">听见 · 每一刻的共鸣</text></view>
+        </view>
+        <view class="lyric-preview"><text class="preview-current">{{previewLine}}</text><text wx:if="{{previewNext}}" class="preview-next">{{previewNext}}</text></view>
+      </view>
+      <view wx:else class="lyrics-region">
+        <scroll-view wx:if="{{lyricStatus === 'synced'}}" class="lyric-scroll" scroll-y="{{true}}" scroll-top="{{lyricScrollTop}}" scroll-with-animation="{{following}}" show-scrollbar="{{false}}" bindtouchstart="manualStart" bindtouchend="manualEnd" bindtouchcancel="manualEnd" bindscroll="manualScroll">
+          <view class="lyric-spacer"></view>
+          <view wx:for="{{lyricLines}}" wx:key="time_ms" id="lyric-line-{{index}}" class="lyric-line {{activeIndex === index ? 'active-line' : ''}}"><text>{{item.text}}</text></view>
+          <view class="lyric-spacer"></view>
+        </scroll-view>
+        <scroll-view wx:elif="{{lyricStatus === 'plain'}}" scroll-y="{{true}}" class="lyric-scroll" show-scrollbar="{{false}}"><text class="plain-label">音源未提供歌词时间轴</text><text class="plain-lyrics">{{plainText}}</text></scroll-view>
+        <view wx:else class="lyric-empty">
+          <text class="lyric-symbol">{{lyricStatus === 'loading' ? '···' : '♫'}}</text>
+          <text class="lyric-empty-title">{{lyricMessage || '暂无歌词'}}</text>
+          <text wx:if="{{lyricStatus === 'unavailable'}}" class="lyric-note">暂未提供歌词，让旋律陪你一会儿</text>
+          <text wx:if="{{lyricStatus === 'instrumental'}}" class="lyric-note">此刻，只听旋律</text>
+          <button wx:if="{{lyricStatus === 'error'}}" class="lyric-retry" disabled="{{retryAfter > 0}}" bindtap="retryLyrics">{{retryAfter > 0 ? '稍后可重试' : '重试获取歌词'}}</button>
+        </view>
+        <button wx:if="{{lyricStatus === 'synced' && !following}}" class="follow-lyrics" bindtap="followLyrics">回到当前歌词</button>
+      </view>
+    </view>
+
+    <view class="track-info" bindtouchstart="swipeStart" catchtouchmove="swipeMove" bindtouchend="swipeEnd" bindtouchcancel="cancelSwipe">
+      <text class="full-title">{{title}}</text>
+      <view class="track-meta"><text class="full-artist">{{artist}}</text><text wx:if="{{sourceName}}" class="full-source">{{sourceName}}</text></view>
+      <text class="swipe-hint">上划下一首 · 下划上一首</text>
+    </view>
+
+    <view class="full-controls">
+      <view class="personal-actions">
+        <button class="personal-action {{favorite ? 'favorite-selected' : ''}}" hover-class="personal-action-pressed" data-kind="favorite" bindtap="toggleMark" disabled="{{!hasSong || markLoading}}" aria-label="{{favorite ? '取消收藏' : '收藏歌曲'}}">
+          <image class="action-icon" src="{{favorite ? '/assets/icons/star-filled.svg' : '/assets/icons/star.svg'}}" mode="aspectFit" aria-hidden="true"/>
+          <text class="action-label">{{favorite ? '已收藏' : '收藏'}}</text>
+        </button>
+        <button class="personal-action {{liked ? 'like-selected' : ''}}" hover-class="personal-action-pressed" data-kind="like" bindtap="toggleMark" disabled="{{!hasSong || markLoading}}" aria-label="{{liked ? '取消喜欢' : '喜欢歌曲'}}">
+          <image class="action-icon" src="{{liked ? '/assets/icons/heart-filled.svg' : '/assets/icons/heart.svg'}}" mode="aspectFit" aria-hidden="true"/>
+          <text class="action-label">{{liked ? '已喜欢' : '喜欢'}}</text>
+        </button>
+        <button class="personal-action" hover-class="personal-action-pressed" open-type="share" disabled="{{!hasSong}}" aria-label="分享歌曲">
+          <image class="action-icon" src="/assets/icons/share.svg" mode="aspectFit" aria-hidden="true"/>
+          <text class="action-label">分享</text>
+        </button>
+      </view>
+      <text wx:if="{{personalError}}" class="personal-error">{{personalError}}</text>
+      <view class="full-progress"><slider min="0" max="{{duration || 1}}" value="{{position}}" step="0.1" disabled="{{!duration || loading}}" bindchange="seek" activeColor="#ffffff" backgroundColor="#ffffff30" block-size="12"/><view class="progress-times"><text>{{positionText}}</text><text>{{durationText}}</text></view></view>
+      <view class="full-buttons">
+        <button class="utility-button {{lyricsVisible ? 'utility-selected' : ''}}" hover-class="control-pressed" disabled="{{!hasSong}}" bindtap="toggleLyrics" aria-label="{{lyricsVisible ? '切换到歌曲封面' : '展开歌词'}}"><view class="lyric-control-icon" aria-hidden="true">词</view><text>{{lyricsVisible ? '封面' : '歌词'}}</text></button>
+        <button class="control-button full-play" hover-class="control-pressed" aria-label="{{continuing ? '暂停自动续播' : (loading ? '正在加载' : (playing ? '暂停' : '播放'))}}" disabled="{{!hasSong || (loading && !failed && !continuing)}}" bindtap="toggle">
+          <view wx:if="{{loading && !continuing}}" class="control-spinner" aria-hidden="true"/>
+          <view wx:elif="{{playing || continuing}}" class="control-pause" aria-hidden="true"><view/><view/></view>
+          <view wx:else class="control-play" aria-hidden="true"/>
+        </button>
+        <button class="utility-button" hover-class="control-pressed" bindtap="openQueue" aria-label="查看当前播放队列"><image class="queue-control-icon" src="/assets/icons/queue.svg" mode="aspectFit" aria-hidden="true"/><text>队列<text wx:if="{{queueCount}}" class="queue-count"> {{queueCount}}</text></text></button>
+      </view>
+      <text wx:if="{{message && (loading || failed || queueEnded)}}" class="full-message">{{message}}</text>
+      <text wx:else class="full-footnote">{{lyricsVisible && lyricSource ? '歌词来源 · ' + lyricSource : '给生活，留一点音乐的时间'}}</text>
+    </view>
+
+    <view wx:if="{{queueOpen}}" class="queue-overlay" catchtap="closeQueue">
+      <view class="queue-sheet" catchtap="swallowTouch" aria-role="dialog" aria-label="当前播放队列">
+        <view class="sheet-handle"></view>
+        <view class="queue-heading"><view><text class="queue-title">当前播放</text><text class="queue-total">{{queueCount}} 首</text></view><button class="queue-close" bindtap="closeQueue" aria-label="关闭播放队列"><view class="close-icon" aria-hidden="true"/></button></view>
+        <text class="queue-note">手动切歌使用当前队列，播完自动接续首页推荐</text>
+        <scroll-view class="queue-scroll" scroll-y="{{true}}" scroll-into-view="{{queueActiveId}}" show-scrollbar="{{false}}">
+          <button wx:for="{{queueItems}}" wx:key="key" id="queue-row-{{index}}" class="queue-row {{item.active ? 'queue-row-active' : ''}}" data-key="{{item.key}}" bindtap="selectQueueSong" aria-label="{{item.active ? '当前歌曲：' : '播放：'}}{{item.title}}">
+            <view class="queue-order"><view wx:if="{{item.active}}" class="equalizer {{playing ? 'equalizer-playing' : ''}}"><view/><view/><view/></view><text wx:else>{{index + 1}}</text></view>
+            <view class="queue-song"><text class="queue-song-title">{{item.title}}</text><text class="queue-song-artist">{{item.artist}}</text></view><text class="queue-source">{{item.sourceName}}</text>
+          </button>
+          <view wx:if="{{!queueItems.length}}" class="queue-empty">当前暂无歌曲，先去发现音乐选一首吧</view>
+        </scroll-view>
+      </view>
+    </view>
+  </view>
 </block>

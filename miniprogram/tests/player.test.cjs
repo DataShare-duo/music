@@ -350,3 +350,17 @@ test("shared autoplay passes the deferred-click flag without changing manual pla
   assert.equal(calls[1][2].defer_click, undefined);
   player.destroy();
 });
+
+test("queue snapshots are independent copies and switching within a queue preserves its contents", async () => {
+  const { player } = setup();
+  await player.play(song(), [song(), song(2)]);
+  const snapshot = player.queueSnapshot();
+  snapshot[0].title = "changed locally";
+  snapshot.pop();
+  assert.equal(player.queueSnapshot().length, 2);
+  assert.equal(player.queueSnapshot()[0].title, "歌曲 1");
+  await player.play(player.queueSnapshot()[1]);
+  assert.equal(player.state.current.id, 2);
+  assert.equal(player.queueSnapshot().length, 2);
+  player.destroy();
+});

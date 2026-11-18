@@ -102,6 +102,7 @@ test("full page subscribes without new playback, centres active lyric and exits 
   app = {
     startupError: "",
     player: {
+      state: snapshot,
       snapshot: () => snapshot,
       subscribe: (fn) => {
         listeners.add(fn);
@@ -130,6 +131,9 @@ test("full page subscribes without new playback, centres active lyric and exits 
   assert.ok(calls[0].path.endsWith("/lyrics"));
   assert.equal(page.data.lyricStatus, "synced");
   assert.equal(page.data.activeIndex, 1);
+  assert.equal(page.data.lyricsVisible, false);
+  assert.equal(page.data.previewLine, "测试乙");
+  page.toggleLyrics();
   assert.equal(page.data.lyricScrollTop, 100);
   assert.equal(page.data.statusTop, 44);
   page.coverFailed();
@@ -140,8 +144,18 @@ test("full page subscribes without new playback, centres active lyric and exits 
   page.followLyrics();
   assert.equal(page.data.following, true);
   page.toggle();
-  page.next();
-  page.previous();
+  const point = (y) => ({ identifier: 1, clientX: 180, clientY: y });
+  for (const [start, end] of [
+    [300, 180],
+    [180, 300],
+  ]) {
+    page.swipeStart({ touches: [point(start)], timeStamp: 10 });
+    page.swipeEnd({
+      changedTouches: [point(end)],
+      touches: [],
+      timeStamp: 200,
+    });
+  }
   page.seek({ detail: { value: 30 } });
   page.back();
   assert.deepEqual(actions, ["toggle", 1, -1, 30, "back"]);
